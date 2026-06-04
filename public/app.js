@@ -258,7 +258,7 @@ function renderEmployees() {
   const page = paginateRows(rows, state.employeePage, state.employeePageSize);
   return `${employeeFilterToolbar()}
     ${panel("Employee records", employeeTable(page.rows) + employeePagination(rows.length, page.totalPages))}
-    ${canManage() ? employeeForm() : ""}`;
+    ${canManage() ? `<div class="toolbar"><button type="button" data-create-employee>Add Employee</button></div>` : ""}`;
 }
 
 function renderPeriods() {
@@ -958,7 +958,7 @@ Teamwork and attitude:10</textarea></div>
 function employeeForm() {
   const defaultDepartment = state.data.departments[0]?.name || "Production";
   const nextEmployeeId = generateEmployeeId();
-  return `<section class="card" style="margin-top:14px"><h2>Add Employee</h2><form id="employeeForm" class="form-grid" novalidate>
+  return `<form id="employeeForm" class="form-grid" novalidate>
     <div class="field"><label>Employee ID</label><input name="employeeId" value="${escapeHtml(nextEmployeeId)}" readonly></div>
     ${input("firstName", "First name")}${input("lastName", "Last name")}${input("email", "Email", "email")}
     <div class="field"><label>Department</label><select name="department">${departmentOptions()}</select></div>
@@ -970,7 +970,19 @@ function employeeForm() {
     ${input("phone", "Phone")}${input("workLocation", "Work location")}
     <div class="error full" id="employeeFormError"></div>
     <button type="submit">Create employee</button>
-  </form></section>`;
+  </form>`;
+}
+
+function employeeCreateModal() {
+  return `<div class="modal-backdrop" data-close-modal>
+    <section class="modal" role="dialog" aria-modal="true">
+      <div class="topbar">
+        <div><h2>Add Employee</h2><div class="hint">Create employee profile and login access.</div></div>
+        <button class="secondary" data-close-modal type="button">Close</button>
+      </div>
+      ${employeeForm()}
+    </section>
+  </div>`;
 }
 
 function input(name, label, type = "text") {
@@ -1264,29 +1276,8 @@ function attachHandlers() {
     const kpi = state.data.kpiMaster.find(item => item.id === row.dataset.kpi);
     if (kpi) openModal(kpiModal(kpi));
   }));
-  document.querySelector("#employeeForm")?.addEventListener("submit", async event => {
-    event.preventDefault();
-    const body = formObject(event.currentTarget);
-    body.employeeId = body.employeeId || generateEmployeeId();
-    const errorEl = document.querySelector("#employeeFormError");
-    const missing = ["firstName", "lastName", "email"].filter(field => !String(body[field] || "").trim());
-    if (missing.length) {
-      if (errorEl) errorEl.textContent = "Please enter first name, last name, and email.";
-      return;
-    }
-    try {
-      await api("/api/employees", { method: "POST", body });
-      state.data = await api("/api/bootstrap");
-      toast("Employee created");
-      renderShell();
-    } catch (error) {
-      if (errorEl) errorEl.textContent = error.message;
-      toast(error.message);
-    }
-  });
-  document.querySelector("#employeeForm select[name='department']")?.addEventListener("change", event => {
-    refreshLineManagerOptions(event.currentTarget.closest("form"));
-  });
+  document.querySelector("[data-create-employee]")?.addEventListener("click", () => openModal(employeeCreateModal()));
+  bindEmployeeCreateForm();
   document.querySelector("#periodForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     await api("/api/periods", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
@@ -1365,6 +1356,33 @@ function attachHandlers() {
     const label = event.currentTarget.closest("td")?.querySelector(".evidence-name");
     if (label) label.textContent = event.currentTarget.files?.[0]?.name || "No file attached";
   }));
+}
+
+function bindEmployeeCreateForm() {
+  document.querySelector("#employeeForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const body = formObject(event.currentTarget);
+    body.employeeId = body.employeeId || generateEmployeeId();
+    const errorEl = document.querySelector("#employeeFormError");
+    const missing = ["firstName", "lastName", "email"].filter(field => !String(body[field] || "").trim());
+    if (missing.length) {
+      if (errorEl) errorEl.textContent = "Please enter first name, last name, and email.";
+      return;
+    }
+    try {
+      await api("/api/employees", { method: "POST", body });
+      state.data = await api("/api/bootstrap");
+      document.querySelector(".modal-backdrop")?.remove();
+      toast("Employee created");
+      renderShell();
+    } catch (error) {
+      if (errorEl) errorEl.textContent = error.message;
+      toast(error.message);
+    }
+  });
+  document.querySelector("#employeeForm select[name='department']")?.addEventListener("change", event => {
+    refreshLineManagerOptions(event.currentTarget.closest("form"));
+  });
 }
 
 function openModal(html) {
