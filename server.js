@@ -125,6 +125,14 @@ function normalizeRoleCategories(value) {
   return clean.length ? clean : ["staff"];
 }
 
+function nextEmployeeId() {
+  const maxNumber = data.employees.reduce((max, employee) => {
+    const match = String(employee.employeeId || "").match(/(\d+)$/);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return `EMP-${String(maxNumber + 1).padStart(3, "0")}`;
+}
+
 function normalizeList(value) {
   if (Array.isArray(value)) return value;
   return String(value || "").split(",").map(item => item.trim()).filter(Boolean);
@@ -292,7 +300,7 @@ async function handleApi(req, res, url) {
         passwordHash: hashPassword("Password123!")
       };
       data.users.push(employeeUser);
-      const employee = { id: `emp-${Date.now()}`, userId: employeeUser.id, employeeId: body.employeeId, firstName: body.firstName, lastName: body.lastName, email: body.email, phone: body.phone || "", department: body.department, jobTitle: body.jobTitle, employmentType: body.employmentType || "Full time", dateOfEmployment: body.dateOfEmployment || new Date().toISOString().slice(0, 10), confirmationStatus: "probation", lineManagerUserId: body.lineManagerUserId, workLocation: body.workLocation || "Plant A", status: body.status || "probation", userAccountStatus: "active", templateId: body.templateId || "", emergencyContact: body.emergencyContact || "", notes: body.notes || "", roleCategories: normalizeRoleCategories(body.roleCategories) };
+      const employee = { id: `emp-${Date.now()}`, userId: employeeUser.id, employeeId: body.employeeId || nextEmployeeId(), firstName: body.firstName, lastName: body.lastName, email: body.email, phone: body.phone || "", department: body.department, jobTitle: body.jobTitle, employmentType: body.employmentType || "Full time", dateOfEmployment: body.dateOfEmployment || new Date().toISOString().slice(0, 10), confirmationStatus: "probation", lineManagerUserId: body.lineManagerUserId, workLocation: body.workLocation || "Plant A", status: body.status || "probation", userAccountStatus: "active", templateId: body.templateId || "", emergencyContact: body.emergencyContact || "", notes: body.notes || "", roleCategories: normalizeRoleCategories(body.roleCategories) };
       data.employees.unshift(employee);
       audit(user, "Employee created with login access", "Employee Master", employee.employeeId, "", employeeUser.email);
       return sendJson(res, 201, employee);

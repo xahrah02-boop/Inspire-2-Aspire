@@ -904,8 +904,10 @@ Teamwork and attitude:10</textarea></div>
 
 function employeeForm() {
   const defaultDepartment = state.data.departments[0]?.name || "Production";
+  const nextEmployeeId = generateEmployeeId();
   return `<section class="card" style="margin-top:14px"><h2>Add Employee</h2><form id="employeeForm" class="form-grid" novalidate>
-    ${input("employeeId", "Employee ID")}${input("firstName", "First name")}${input("lastName", "Last name")}${input("email", "Email", "email")}
+    <div class="field"><label>Employee ID</label><input name="employeeId" value="${escapeHtml(nextEmployeeId)}" readonly></div>
+    ${input("firstName", "First name")}${input("lastName", "Last name")}${input("email", "Email", "email")}
     <div class="field"><label>Department</label><select name="department">${departmentOptions()}</select></div>
     <div class="field"><label>Job title</label><select name="jobTitle">${jobRoleOptions()}</select></div>
     ${roleCategoryChecks({ roleCategories: ["staff"] })}
@@ -942,13 +944,22 @@ function roleCategoryChecks(employee) {
 }
 
 function employeeRoleCategories(employee) {
-  if (Array.isArray(employee.roleCategories)) return employee.roleCategories;
-  if (employee.roleCategory) return [employee.roleCategory];
+  if (Array.isArray(employee.roleCategories)) return employee.roleCategories.filter(Boolean);
+  if (employee.roleCategories) return String(employee.roleCategories).split(",").map(role => role.trim()).filter(Boolean);
+  if (employee.roleCategory) return String(employee.roleCategory).split(",").map(role => role.trim()).filter(Boolean);
   return ["staff"];
 }
 
 function roleCategoryLabel(employee) {
   return employeeRoleCategories(employee).join(", ");
+}
+
+function generateEmployeeId() {
+  const maxNumber = state.data.employees.reduce((max, employee) => {
+    const match = String(employee.employeeId || "").match(/(\d+)$/);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return `EMP-${String(maxNumber + 1).padStart(3, "0")}`;
 }
 
 function departmentOptions() {

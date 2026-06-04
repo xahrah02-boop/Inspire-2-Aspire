@@ -196,6 +196,8 @@ function createEmployee_(user, body) {
   const userId = "u-emp-" + Date.now();
   appendRow_("Users", { id: userId, email: body.email, name: body.firstName + " " + body.lastName, role: "EMPLOYEE", status: "active", password: "Password123!", token: "" });
   const employee = Object.assign({ id, userId, userAccountStatus: "active", roleCategories: "staff" }, body);
+  employee.employeeId = employee.employeeId || nextEmployeeId_();
+  employee.roleCategories = normalizeRoleCategories_(employee.roleCategories).join(", ");
   appendRow_("Employees", employee);
   audit_(user, "Employee created", "Employee Master", employee.employeeId, "", employee.email);
   return employee;
@@ -203,10 +205,35 @@ function createEmployee_(user, body) {
 
 function updateEmployee_(user, id, body) {
   requireRole_(user, ["HR_ADMIN"]);
+  if (body.roleCategories !== undefined) body.roleCategories = normalizeRoleCategories_(body.roleCategories).join(", ");
   const employee = Object.assign(readById_("Employees", id), body);
+  employee.employeeId = employee.employeeId || nextEmployeeId_();
   updateRow_("Employees", id, employee);
   audit_(user, "Employee updated", "Employee Master", employee.employeeId, "", JSON.stringify(body));
   return employee;
+}
+
+function normalizeRoleCategories_(value) {
+  const source = Array.isArray(value) ? value : String(value || "staff").split(",");
+  const seen = {};
+  const result = [];
+  source.forEach(function(item) {
+    const role = String(item || "").trim();
+    if (role && !seen[role]) {
+      seen[role] = true;
+      result.push(role);
+    }
+  });
+  return result.length ? result : ["staff"];
+}
+
+function nextEmployeeId_() {
+  const maxNumber = readRows_("Employees").reduce(function(max, employee) {
+    const match = String(employee.employeeId || "").match(/(\d+)$/);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  const nextNumber = String(maxNumber + 1);
+  return "EMP-" + ("000" + nextNumber).slice(-3);
 }
 
 function createKpi_(user, body) {
