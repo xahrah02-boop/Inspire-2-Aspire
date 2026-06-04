@@ -208,10 +208,11 @@ function createEmployee_(user, body) {
   requireRole_(user, ["HR_ADMIN"]);
   const id = "emp-" + Date.now();
   const userId = "u-emp-" + Date.now();
-  appendRow_("Users", { id: userId, email: body.email, name: body.firstName + " " + body.lastName, role: "EMPLOYEE", status: "active", password: "Password123!", token: "" });
   const employee = Object.assign({ id, userId, userAccountStatus: "active", roleCategories: "staff" }, body);
   employee.employeeId = employee.employeeId || nextEmployeeId_();
   employee.roleCategories = normalizeRoleCategories_(employee.roleCategories).join(", ");
+  employee.templateId = templateIdForEmployee_(employee);
+  appendRow_("Users", { id: userId, email: body.email, name: body.firstName + " " + body.lastName, role: accountRoleForCategories_(employee.roleCategories), status: "active", password: "Password123!", token: "" });
   appendRow_("Employees", employee);
   audit_(user, "Employee created", "Employee Master", employee.employeeId, "", employee.email);
   return employee;
@@ -222,7 +223,9 @@ function updateEmployee_(user, id, body) {
   if (body.roleCategories !== undefined) body.roleCategories = normalizeRoleCategories_(body.roleCategories).join(", ");
   const employee = Object.assign(readById_("Employees", id), body);
   employee.employeeId = employee.employeeId || nextEmployeeId_();
+  employee.templateId = templateIdForEmployee_(employee);
   updateRow_("Employees", id, employee);
+  updateLinkedEmployeeUser_(employee);
   audit_(user, "Employee updated", "Employee Master", employee.employeeId, "", JSON.stringify(body));
   return employee;
 }
@@ -239,6 +242,29 @@ function normalizeRoleCategories_(value) {
     }
   });
   return result.length ? result : ["staff"];
+}
+
+function accountRoleForCategories_(value) {
+  const categories = normalizeRoleCategories_(value);
+  return categories.indexOf("managerial") !== -1 || categories.indexOf("supervisory") !== -1 ? "LINE_MANAGER" : "EMPLOYEE";
+}
+
+function templateIdForEmployee_(employee) {
+  if (employee.templateId) return employee.templateId;
+  const template = readRows_("KpiTemplates").map(parseTemplate_).find(function(row) {
+    return row.jobRole === employee.jobTitle && row.status !== "archived";
+  });
+  return template ? template.id : "";
+}
+
+function updateLinkedEmployeeUser_(employee) {
+  if (!employee.userId) return;
+  const linkedUser = readById_("Users", employee.userId);
+  linkedUser.email = employee.email;
+  linkedUser.name = employee.firstName + " " + employee.lastName;
+  linkedUser.role = accountRoleForCategories_(employee.roleCategories);
+  linkedUser.status = employee.userAccountStatus === "active" ? "active" : "inactive";
+  updateRow_("Users", linkedUser.id, linkedUser);
 }
 
 function nextEmployeeId_() {

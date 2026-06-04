@@ -126,6 +126,16 @@ function normalizeRoleCategories(value) {
   return clean.length ? clean : ["staff"];
 }
 
+function accountRoleForCategories(value) {
+  const categories = normalizeRoleCategories(value);
+  return categories.includes("managerial") || categories.includes("supervisory") ? Roles.LINE_MANAGER : Roles.EMPLOYEE;
+}
+
+function templateIdForEmployeeBody(body) {
+  if (body.templateId) return body.templateId;
+  return data.templates.find(template => template.jobRole === body.jobTitle && template.status !== "archived")?.id || "";
+}
+
 function nextEmployeeId() {
   const maxNumber = data.employees.reduce((max, employee) => {
     const match = String(employee.employeeId || "").match(/(\d+)$/);
@@ -292,16 +302,17 @@ async function handleApi(req, res, url) {
       assertCan(user.role, "manageEmployees");
       const body = await readBody(req);
       if (!body.department || !body.lineManagerUserId) return sendJson(res, 422, { error: "Employee must have a department and line manager." });
+      const roleCategories = normalizeRoleCategories(body.roleCategories);
       const employeeUser = {
         id: `u-emp-${Date.now()}`,
         email: body.email,
         name: `${body.firstName} ${body.lastName}`,
-        role: Roles.EMPLOYEE,
+        role: accountRoleForCategories(roleCategories),
         status: "active",
         passwordHash: hashPassword("Password123!")
       };
       data.users.push(employeeUser);
-      const employee = { id: `emp-${Date.now()}`, userId: employeeUser.id, employeeId: body.employeeId || nextEmployeeId(), firstName: body.firstName, lastName: body.lastName, email: body.email, phone: body.phone || "", department: body.department, jobTitle: body.jobTitle, employmentType: body.employmentType || "Full time", dateOfEmployment: body.dateOfEmployment || new Date().toISOString().slice(0, 10), confirmationStatus: "probation", lineManagerUserId: body.lineManagerUserId, workLocation: body.workLocation || "Plant A", status: body.status || "probation", userAccountStatus: "active", templateId: body.templateId || "", emergencyContact: body.emergencyContact || "", notes: body.notes || "", roleCategories: normalizeRoleCategories(body.roleCategories) };
+      const employee = { id: `emp-${Date.now()}`, userId: employeeUser.id, employeeId: body.employeeId || nextEmployeeId(), firstName: body.firstName, lastName: body.lastName, email: body.email, phone: body.phone || "", department: body.department, jobTitle: body.jobTitle, employmentType: body.employmentType || "Full time", dateOfEmployment: body.dateOfEmployment || new Date().toISOString().slice(0, 10), confirmationStatus: "probation", lineManagerUserId: body.lineManagerUserId, workLocation: body.workLocation || "Plant A", status: body.status || "probation", userAccountStatus: "active", templateId: templateIdForEmployeeBody(body), emergencyContact: body.emergencyContact || "", notes: body.notes || "", roleCategories };
       data.employees.unshift(employee);
       audit(user, "Employee created with login access", "Employee Master", employee.employeeId, "", employeeUser.email);
       return sendJson(res, 201, employee);
@@ -322,6 +333,14 @@ async function handleApi(req, res, url) {
         if (body[field] !== undefined) employee[field] = body[field];
       }
       if (body.roleCategories) employee.roleCategories = normalizeRoleCategories(body.roleCategories);
+      employee.templateId = templateIdForEmployeeBody(employee);
+      const linkedUser = data.users.find(item => item.id === employee.userId);
+      if (linkedUser) {
+        linkedUser.email = employee.email;
+        linkedUser.name = `${employee.firstName} ${employee.lastName}`;
+        linkedUser.status = employee.userAccountStatus === "active" ? "active" : "inactive";
+        linkedUser.role = accountRoleForCategories(employee.roleCategories);
+      }
       audit(user, "Employee updated", "Employee Master", employee.employeeId, oldValue, JSON.stringify(employee));
       return sendJson(res, 200, employee);
     }

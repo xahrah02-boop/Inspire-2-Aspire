@@ -947,7 +947,7 @@ function employeeForm() {
     <div class="field"><label>Job title</label><select name="jobTitle">${jobRoleOptions()}</select></div>
     ${roleCategoryChecks({ roleCategories: ["staff"] })}
     <div class="field"><label>Line manager</label><select name="lineManagerUserId">${lineManagerOptions("", defaultDepartment)}</select></div>
-    <div class="field"><label>KPI template</label><select name="templateId">${state.data.templates.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("")}</select></div>
+    <div class="field"><label>KPI template</label><select name="templateId"><option value="">Auto assign by job role</option>${state.data.templates.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("")}</select></div>
     <div class="field"><label>Employee status</label><select name="status">${["active", "probation", "confirmed", "exited", "suspended"].map(status => `<option value="${status}">${status}</option>`).join("")}</select></div>
     ${input("phone", "Phone")}${input("workLocation", "Work location")}
     <div class="error full" id="employeeFormError"></div>
