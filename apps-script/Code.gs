@@ -1,4 +1,4 @@
-const SHEETS = {
+var SHEETS = {
   users: "Users",
   employees: "Employees",
   departments: "Departments",
