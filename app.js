@@ -25,13 +25,14 @@ async function api(path, options = {}) {
   const method = apiBaseUrl && options.method && options.method !== "GET" ? "POST" : options.method;
   const body = options.body ? { ...options.body } : undefined;
   if (apiBaseUrl && remoteToken && body) body.token = remoteToken;
-  const res = await fetch(url, {
-    headers: { "content-type": "application/json" },
+  const fetchOptions = {
     credentials: apiBaseUrl ? "omit" : "same-origin",
     ...options,
     method,
     body: body ? JSON.stringify(body) : undefined
-  });
+  };
+  if (body) fetchOptions.headers = { "content-type": "text/plain;charset=utf-8" };
+  const res = await fetch(url, fetchOptions);
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || "Request failed");
