@@ -5,7 +5,7 @@ let searchTimer;
 const roleMenus = {
   SUPER_ADMIN: ["dashboard", "users", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
   HR_ADMIN: ["dashboard", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
-  LINE_MANAGER: ["dashboard", "employees", "appraisals", "help"],
+  LINE_MANAGER: ["profile", "employees", "appraisals", "help"],
   EMPLOYEE: ["profile", "kpis", "results", "help"]
 };
 
@@ -351,12 +351,29 @@ function renderResults() {
 }
 
 function renderProfile() {
+  if (state.user.role === "LINE_MANAGER") {
+    const assigned = state.data.employees.filter(employee => employee.userId !== state.user.id);
+    const managerRecord = state.data.employees.find(employee => employee.userId === state.user.id);
+    return `${panel("My profile", managerRecord ? table([managerRecord], ["employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "status"], ["status"]) : `<div class="card"><h2>${escapeHtml(state.user.name)}</h2><div class="hint">${escapeHtml(state.user.email)} · Line Manager</div></div>`)}
+      ${panel("Employees assigned to me", assigned.length ? managerAssignedEmployeesTable(assigned) : "<div class='empty'>No employees assigned yet.</div>")}`;
+  }
   const employee = state.data.employees[0];
   if (!employee) return "<div class='empty'>No employee profile found.</div>";
   const template = assignedTemplateForEmployee(employee);
   const kpis = employeeAssignedKpiRows(employee, state.data.appraisals[0]);
   return `${panel("My profile", table([employee], ["employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "status", "emergencyContact"], ["status"]))}
     ${panel("Assigned KPIs", template ? `<div class="topbar"><div><h2>${escapeHtml(template.name)}</h2><div class="hint">${escapeHtml(template.department)} · ${escapeHtml(template.jobRole)}</div></div><span class="badge ${template.status}">${escapeHtml(template.status)}</span></div>${table(kpis, ["title", "weight", "target"], [])}` : "<div class='empty'>No KPI assigned yet.</div>")}`;
+}
+
+function managerAssignedEmployeesTable(rows) {
+  return `<div class="table-wrap"><table><thead><tr>
+    <th>Employee</th><th>Department</th><th>Designation</th><th>Status</th>
+  </tr></thead><tbody>${rows.map(employee => `<tr class="clickable-row" data-employee="${employee.id}">
+    <td><button class="link-button" type="button">${escapeHtml(`${employee.firstName} ${employee.lastName}`)}</button></td>
+    <td>${escapeHtml(employee.department)}</td>
+    <td>${escapeHtml(employee.jobTitle)}</td>
+    <td><span class="badge ${escapeHtml(employee.status)}">${escapeHtml(employee.status)}</span></td>
+  </tr>`).join("")}</tbody></table></div>`;
 }
 
 function renderReports() {

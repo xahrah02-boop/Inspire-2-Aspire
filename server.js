@@ -112,6 +112,10 @@ function finalScore(appraisal) {
 }
 
 function visibleEmployees(user) {
+  if (user.role === Roles.LINE_MANAGER) {
+    const managerEmployeeIds = data.employees.filter(employee => employee.userId === user.id).map(employee => employee.id);
+    return data.employees.filter(employee => employee.lineManagerUserId === user.id || managerEmployeeIds.includes(employee.lineManagerUserId));
+  }
   return data.employees.filter(employee => canViewEmployee(user, employee));
 }
 
@@ -419,7 +423,7 @@ async function handleApi(req, res, url) {
       const employee = data.employees.find(e => e.id === appraisal.employeeId);
       const body = await readBody(req);
       if (user.role === Roles.LINE_MANAGER) {
-        if (employee.lineManagerUserId !== user.id) return sendJson(res, 403, { error: "Line managers can only appraise assigned employees." });
+        if (!managerCanAccessEmployee(user, employee)) return sendJson(res, 403, { error: "Line managers can only appraise assigned employees." });
         if (!data.appraisalPeriods.find(p => p.id === appraisal.periodId && p.status === "open")) return sendJson(res, 423, { error: "Appraisal period is not open." });
         if (body.confirmEmployeeComments) {
           const scoreIds = body.scoreIds || appraisal.scores.map(score => score.id);
@@ -515,6 +519,12 @@ function kpiMatchesEmployee(kpi, employee) {
   const departmentMatch = kpi.department === "All" || kpi.department === employee.department;
   const roleMatch = kpi.jobRole === "All" || kpi.jobRole === employee.jobTitle;
   return kpi.status !== "archived" && departmentMatch && roleMatch;
+}
+
+function managerCanAccessEmployee(user, employee) {
+  if (!employee) return false;
+  const managerEmployeeIds = data.employees.filter(item => item.userId === user.id).map(item => item.id);
+  return employee.lineManagerUserId === user.id || managerEmployeeIds.includes(employee.lineManagerUserId);
 }
 
 function appraisalQueueFor(user, employees) {

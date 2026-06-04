@@ -129,7 +129,16 @@ function kpiMatchesEmployee_(kpi, employee) {
 function visibleEmployees_(user) {
   const employees = readRows_("Employees");
   if (user.role === "HR_ADMIN") return employees;
-  if (user.role === "LINE_MANAGER") return employees.filter(employee => employee.lineManagerUserId === user.id);
+  if (user.role === "LINE_MANAGER") {
+    const managerEmployeeIds = employees.filter(function(employee) {
+      return employee.userId === user.id;
+    }).map(function(employee) {
+      return employee.id;
+    });
+    return employees.filter(function(employee) {
+      return employee.lineManagerUserId === user.id || managerEmployeeIds.indexOf(employee.lineManagerUserId) !== -1;
+    });
+  }
   return employees.filter(employee => employee.userId === user.id);
 }
 
@@ -353,7 +362,7 @@ function updateAppraisal_(user, id, body) {
   const appraisal = parseAppraisal_(readById_("Appraisals", id));
   if (user.role === "LINE_MANAGER") {
     const employee = readById_("Employees", appraisal.employeeId);
-    if (employee.lineManagerUserId !== user.id) throw new Error("Line managers can only update assigned employees.");
+    if (!managerCanAccessEmployee_(user, employee)) throw new Error("Line managers can only update assigned employees.");
     if (body.confirmEmployeeComments) appraisal.scores.forEach(score => score.managerConfirmedEmployeeComment = true);
     if (body.scores) appraisal.scores = body.scores;
     if (body.submit) appraisal.status = "Submitted";
@@ -365,6 +374,16 @@ function updateAppraisal_(user, id, body) {
 function dashboardFor_(user) {
   const employees = visibleEmployees_(user);
   return { cards: [["Total employees", employees.length], ["Departments", readRows_("Departments").length], ["Open periods", readRows_("AppraisalPeriods").filter(p => p.status === "open").length]] };
+}
+
+function managerCanAccessEmployee_(user, employee) {
+  const employees = readRows_("Employees");
+  const managerEmployeeIds = employees.filter(function(item) {
+    return item.userId === user.id;
+  }).map(function(item) {
+    return item.id;
+  });
+  return employee.lineManagerUserId === user.id || managerEmployeeIds.indexOf(employee.lineManagerUserId) !== -1;
 }
 
 function reports_() {
