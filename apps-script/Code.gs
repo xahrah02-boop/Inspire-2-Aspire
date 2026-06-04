@@ -30,6 +30,10 @@ function handleRequest_(e, method) {
     if (path === "/api/health") return json_({ ok: true });
     if (path === "/api/me") return json_({ user: publicUser_(user), dashboard: dashboardFor_(user), notifications: [] });
     if (path === "/api/bootstrap") return json_(bootstrap_(user));
+    if (path === "/api/departments" && method === "POST") return json_(createDepartment_(user, body), 201);
+    if (path.indexOf("/api/departments/") === 0 && method === "POST") return json_(updateDepartment_(user, path.split("/").pop(), body));
+    if (path === "/api/job-roles" && method === "POST") return json_(createJobRole_(user, body), 201);
+    if (path.indexOf("/api/job-roles/") === 0 && method === "POST") return json_(updateJobRole_(user, path.split("/").pop(), body));
     if (path === "/api/employees" && method === "POST") return json_(createEmployee_(user, body), 201);
     if (path.indexOf("/api/employees/") === 0 && method === "POST") return json_(updateEmployee_(user, path.split("/").pop(), body));
     if (path === "/api/kpis" && method === "POST") return json_(createKpi_(user, body), 201);
@@ -113,6 +117,77 @@ function visibleEmployees_(user) {
   if (user.role === "HR_ADMIN") return employees;
   if (user.role === "LINE_MANAGER") return employees.filter(employee => employee.lineManagerUserId === user.id);
   return employees.filter(employee => employee.userId === user.id);
+}
+
+function createDepartment_(user, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  if (!body.name) throw new Error("Department name is required.");
+  const department = {
+    id: "dept-" + Date.now(),
+    name: body.name,
+    managerialRole: body.managerialRole || "",
+    supervisoryRole: body.supervisoryRole || "",
+    status: body.status || "active"
+  };
+  appendRow_("Departments", department);
+  audit_(user, "Department created", "Department Master", department.name, "", JSON.stringify(department));
+  return department;
+}
+
+function updateDepartment_(user, id, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const department = readById_("Departments", id);
+  const oldName = department.name;
+  const oldValue = JSON.stringify(department);
+  department.name = body.name || department.name;
+  department.managerialRole = body.managerialRole !== undefined ? body.managerialRole : department.managerialRole;
+  department.supervisoryRole = body.supervisoryRole !== undefined ? body.supervisoryRole : department.supervisoryRole;
+  department.status = body.status || department.status || "active";
+  updateRow_("Departments", id, department);
+  if (oldName !== department.name) renameDepartmentReferences_(oldName, department.name);
+  audit_(user, "Department updated", "Department Master", department.name, oldValue, JSON.stringify(department));
+  return department;
+}
+
+function createJobRole_(user, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  if (!body.title || !body.department) throw new Error("Job role requires a title and department.");
+  const role = {
+    id: "role-" + Date.now(),
+    title: body.title,
+    department: body.department,
+    status: body.status || "active"
+  };
+  appendRow_("JobRoles", role);
+  audit_(user, "Job role created", "Department Master", role.title, "", JSON.stringify(role));
+  return role;
+}
+
+function updateJobRole_(user, id, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const role = readById_("JobRoles", id);
+  const oldTitle = role.title;
+  const oldValue = JSON.stringify(role);
+  role.title = body.title || role.title;
+  role.department = body.department || role.department;
+  role.status = body.status || role.status || "active";
+  updateRow_("JobRoles", id, role);
+  if (oldTitle !== role.title) renameJobRoleReferences_(oldTitle, role.title);
+  audit_(user, "Job role updated", "Department Master", role.title, oldValue, JSON.stringify(role));
+  return role;
+}
+
+function renameDepartmentReferences_(oldName, newName) {
+  updateMatchingRows_("Employees", "department", oldName, function(row) { row.department = newName; return row; });
+  updateMatchingRows_("JobRoles", "department", oldName, function(row) { row.department = newName; return row; });
+  updateMatchingRows_("KpiMaster", "department", oldName, function(row) { row.department = newName; return row; });
+  updateMatchingRows_("KpiTemplates", "department", oldName, function(row) { row.department = newName; return row; });
+}
+
+function renameJobRoleReferences_(oldTitle, newTitle) {
+  updateMatchingRows_("Employees", "jobTitle", oldTitle, function(row) { row.jobTitle = newTitle; return row; });
+  updateMatchingRows_("KpiMaster", "jobRole", oldTitle, function(row) { row.jobRole = newTitle; return row; });
+  updateMatchingRows_("KpiTemplates", "jobRole", oldTitle, function(row) { row.jobRole = newTitle; return row; });
 }
 
 function createEmployee_(user, body) {
@@ -276,6 +351,23 @@ function updateRow_(sheetName, id, obj) {
     }
   }
   throw new Error(sheetName + " record not found.");
+}
+
+function updateMatchingRows_(sheetName, fieldName, fieldValue, mapper) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return;
+  const headers = values[0];
+  const fieldIndex = headers.indexOf(fieldName);
+  if (fieldIndex === -1) return;
+  for (let r = 1; r < values.length; r++) {
+    if (values[r][fieldIndex] === fieldValue) {
+      const row = {};
+      headers.forEach((header, i) => row[header] = values[r][i]);
+      const updated = mapper(row);
+      sheet.getRange(r + 1, 1, 1, headers.length).setValues([headers.map(header => updated[header] || "")]);
+    }
+  }
 }
 
 function parseBody_(e) {
