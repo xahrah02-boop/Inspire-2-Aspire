@@ -799,6 +799,7 @@ function templateModal(template = null) {
         <div class="field"><label>Department</label><select name="department">${state.data.departments.map(dept => `<option value="${escapeHtml(dept.name)}" ${template?.department === dept.name ? "selected" : ""}>${escapeHtml(dept.name)}</option>`).join("")}</select></div>
         <div class="field"><label>Job role</label><select name="jobRole">${state.data.jobRoles.map(role => `<option value="${escapeHtml(role.title)}" ${template?.jobRole === role.title ? "selected" : ""}>${escapeHtml(role.title)}</option>`).join("")}</select></div>
         <div class="field"><label>Status</label><select name="status">${["draft", "active", "archived"].map(status => `<option value="${status}" ${template?.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></div>
+        ${templateKpiPicker(template)}
         <div class="field full"><label>KPI items as title:weight, one per line</label><textarea name="items" required>${escapeHtml(template ? template.items.map(item => `${item.title}:${item.weight}`).join("\n") : "Output achievement:25\nQuality of work:20\nWaste control:15\nAttendance and punctuality:10\nSafety compliance:10\nProcess discipline:10\nTeamwork and attitude:10")}</textarea></div>
         <button type="submit">${isEdit ? "Save template" : "Create template"}</button>
       </form>
@@ -806,11 +807,32 @@ function templateModal(template = null) {
   </div>`;
 }
 
+function templateKpiPicker(template = null) {
+  const selectedTitles = new Set((template?.items || []).map(item => item.title));
+  const rows = state.data.kpiMaster.filter(kpi => kpi.status !== "archived");
+  if (!rows.length) return `<div class="field full"><label>KPI Master records</label><div class="empty">No KPI Master records found.</div></div>`;
+  return `<fieldset class="field role-checks full"><legend>KPI Master records</legend>
+    ${rows.map(kpi => `<label><input type="checkbox" name="templateKpis" value="${escapeHtml(kpi.id)}" ${selectedTitles.has(kpi.title) ? "checked" : ""}> ${escapeHtml(kpi.code || "")} ${escapeHtml(kpi.title)} - ${escapeHtml(kpi.department)} / ${escapeHtml(kpi.jobRole)} (${escapeHtml(kpi.weight || 0)}%)</label>`).join("")}
+  </fieldset>`;
+}
+
 function templateItemsFromText(text, prefix = "template-item") {
   return String(text || "").split("\n").map(line => line.trim()).filter(Boolean).map((line, index) => {
     const [title, weight] = line.split(":");
     return { id: `${prefix}-${index + 1}`, title: String(title || "").trim(), weight: Number(weight || 0) };
   });
+}
+
+function templateItemsFromForm(form, prefix = "template-item") {
+  const data = new FormData(form);
+  const selectedKpis = data.getAll("templateKpis");
+  if (selectedKpis.length) {
+    return selectedKpis.map((id, index) => {
+      const kpi = state.data.kpiMaster.find(item => item.id === id);
+      return { id: `${prefix}-${index + 1}`, kpiId: id, title: kpi?.title || id, weight: Number(kpi?.weight || 0) };
+    });
+  }
+  return templateItemsFromText(data.get("items"), prefix);
 }
 
 function filterRows(rows, fields) {
@@ -1213,7 +1235,7 @@ function attachHandlers() {
   document.querySelector("#templateForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget));
-    const items = templateItemsFromText(form.items, "new-item");
+    const items = templateItemsFromForm(event.currentTarget, "new-item");
     await api("/api/templates", { method: "POST", body: { name: form.name, department: form.department, jobRole: form.jobRole, items } });
     state.data = await api("/api/bootstrap");
     toast("Template created");
@@ -1324,7 +1346,7 @@ function openModal(html) {
   document.querySelector("#templateCreateForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget));
-    const items = templateItemsFromText(form.items, "new-template-item");
+    const items = templateItemsFromForm(event.currentTarget, "new-template-item");
     const template = await api("/api/templates", { method: "POST", body: { name: form.name, department: form.department, jobRole: form.jobRole, status: form.status, items } });
     state.selectedTemplateId = template.id;
     state.data = await api("/api/bootstrap");
@@ -1335,7 +1357,7 @@ function openModal(html) {
   document.querySelector("#templateEditForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget));
-    const items = templateItemsFromText(form.items, event.currentTarget.dataset.templateId);
+    const items = templateItemsFromForm(event.currentTarget, event.currentTarget.dataset.templateId);
     await api(`/api/templates/${event.currentTarget.dataset.templateId}`, { method: "PATCH", body: { name: form.name, department: form.department, jobRole: form.jobRole, status: form.status, items } });
     state.selectedTemplateId = event.currentTarget.dataset.templateId;
     state.data = await api("/api/bootstrap");

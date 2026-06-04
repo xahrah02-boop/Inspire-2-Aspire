@@ -38,6 +38,8 @@ function handleRequest_(e, method) {
     if (path.indexOf("/api/employees/") === 0 && method === "POST") return json_(updateEmployee_(user, path.split("/").pop(), body));
     if (path === "/api/kpis" && method === "POST") return json_(createKpi_(user, body), 201);
     if (path.indexOf("/api/kpis/") === 0 && method === "POST") return json_(updateKpi_(user, path.split("/").pop(), body));
+    if (path === "/api/templates" && method === "POST") return json_(createTemplate_(user, body), 201);
+    if (path.indexOf("/api/templates/") === 0 && method === "POST") return json_(updateTemplate_(user, path.split("/").pop(), body));
     if (path === "/api/my-kpi-comments" && method === "POST") return json_(saveEmployeeKpiComments_(user, body));
     if (path.indexOf("/api/appraisals/") === 0 && method === "POST") return json_(updateAppraisal_(user, path.split("/").pop(), body));
     return json_({ error: "Route not found.", path }, 404);
@@ -248,6 +250,45 @@ function updateKpi_(user, id, body) {
   const kpi = Object.assign(readById_("KpiMaster", id), body);
   updateRow_("KpiMaster", id, kpi);
   return kpi;
+}
+
+function createTemplate_(user, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const items = body.items || [];
+  validateTemplateWeight_(items);
+  const template = {
+    id: "tpl-" + Date.now(),
+    name: body.name,
+    department: body.department,
+    jobRole: body.jobRole,
+    status: body.status || "active",
+    itemsJson: JSON.stringify(items)
+  };
+  appendRow_("KpiTemplates", template);
+  audit_(user, "KPI template created", "KPI Templates", template.name, "", JSON.stringify(template));
+  return parseTemplate_(template);
+}
+
+function updateTemplate_(user, id, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const template = readById_("KpiTemplates", id);
+  const oldValue = JSON.stringify(template);
+  if (body.items) validateTemplateWeight_(body.items);
+  template.name = body.name || template.name;
+  template.department = body.department || template.department;
+  template.jobRole = body.jobRole || template.jobRole;
+  template.status = body.status || template.status || "active";
+  if (body.items) template.itemsJson = JSON.stringify(body.items);
+  updateRow_("KpiTemplates", id, template);
+  audit_(user, "KPI template updated", "KPI Templates", template.name, oldValue, JSON.stringify(template));
+  return parseTemplate_(template);
+}
+
+function validateTemplateWeight_(items) {
+  const total = (items || []).reduce(function(sum, item) {
+    return sum + Number(item.weight || 0);
+  }, 0);
+  if (total !== 100) throw new Error("KPI template weight must equal 100%.");
 }
 
 function saveEmployeeKpiComments_(user, body) {
