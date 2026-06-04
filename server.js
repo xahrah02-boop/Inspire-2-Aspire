@@ -99,7 +99,8 @@ function dashboardFor(user) {
 }
 
 function templateFor(employee) {
-  return data.templates.find(template => template.id === employee.templateId);
+  return data.templates.find(template => template.id === employee.templateId)
+    || data.templates.find(template => template.jobRole === employee.jobTitle && template.status !== "archived");
 }
 
 function appraisalForEmployee(employeeId) {

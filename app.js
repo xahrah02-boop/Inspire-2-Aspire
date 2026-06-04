@@ -6,7 +6,7 @@ const roleMenus = {
   SUPER_ADMIN: ["dashboard", "users", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
   HR_ADMIN: ["dashboard", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
   LINE_MANAGER: ["dashboard", "employees", "appraisals", "help"],
-  EMPLOYEE: ["dashboard", "profile", "kpis", "results", "help"]
+  EMPLOYEE: ["profile", "kpis", "results", "help"]
 };
 
 const labels = {
@@ -66,6 +66,7 @@ async function init() {
     const me = await api("/api/me");
     state.user = me.user;
     state.data = await api("/api/bootstrap");
+    setDefaultViewForRole();
     renderShell();
   } catch {
     renderLogin();
@@ -102,6 +103,7 @@ function renderLogin() {
       if (result.user?.token) localStorage.setItem("forgeHrToken", result.user.token);
       state.user = result.user;
       state.data = await api("/api/bootstrap");
+      setDefaultViewForRole();
       renderShell();
     } catch (error) {
       document.querySelector("#loginError").textContent = error.message;
@@ -111,6 +113,7 @@ function renderLogin() {
 
 function renderShell() {
   const menu = roleMenus[state.user.role] || ["dashboard"];
+  if (!menu.includes(state.view)) state.view = menu[0];
   app.innerHTML = `
     <section class="layout">
       <aside class="sidebar">
@@ -142,6 +145,11 @@ function renderShell() {
     renderLogin();
   });
   renderView();
+}
+
+function setDefaultViewForRole() {
+  const menu = roleMenus[state.user?.role] || ["dashboard"];
+  state.view = menu[0];
 }
 
 function subtitleFor(view) {
@@ -207,16 +215,18 @@ function renderKpis() {
 function renderEmployeeKpis() {
   const appraisal = state.data.appraisals[0];
   const employee = state.data.employees[0];
-  if (!employee || !appraisal) return "<div class='empty'>No KPI assigned yet.</div>";
+  const rows = employeeAssignedKpiRows(employee, appraisal);
+  const periodId = appraisal?.periodId || state.data.periods.find(period => period.status === "open")?.id || state.data.periods[0]?.id || "";
+  if (!employee || !rows.length) return "<div class='empty'>No KPI assigned yet.</div>";
   return `<section class="card">
     <div class="topbar">
-      <div><h2>My assigned KPIs</h2><div class="hint">${escapeHtml(employee.department)} · ${escapeHtml(employee.jobTitle)} · ${escapeHtml(periodName(appraisal.periodId))}</div></div>
-      <span class="badge ${appraisal.status}">${escapeHtml(appraisal.status)}</span>
+      <div><h2>My assigned KPIs</h2><div class="hint">${escapeHtml(employee.department)} · ${escapeHtml(employee.jobTitle)} · ${escapeHtml(periodName(periodId))}</div></div>
+      <span class="badge ${appraisal?.status || "Not Started"}">${escapeHtml(appraisal?.status || "Not Started")}</span>
     </div>
-    <form id="employeeKpiCommentForm" data-period-id="${appraisal.periodId}">
+    <form id="employeeKpiCommentForm" data-period-id="${escapeHtml(periodId)}">
       <div class="table-wrap"><table><thead><tr>
         <th>KPI</th><th>Weight</th><th>Target</th><th>Scoring guide</th><th>My comment</th><th>Manager confirmed</th>
-      </tr></thead><tbody>${appraisal.scores.map(score => `<tr>
+      </tr></thead><tbody>${rows.map(score => `<tr>
         <td><strong>${escapeHtml(score.title)}</strong></td>
         <td>${escapeHtml(score.weight)}%</td>
         <td>${escapeHtml(score.target)}</td>
@@ -343,7 +353,10 @@ function renderResults() {
 function renderProfile() {
   const employee = state.data.employees[0];
   if (!employee) return "<div class='empty'>No employee profile found.</div>";
-  return panel("My profile", table([employee], ["employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "status", "emergencyContact"], ["status"]));
+  const template = assignedTemplateForEmployee(employee);
+  const kpis = employeeAssignedKpiRows(employee, state.data.appraisals[0]);
+  return `${panel("My profile", table([employee], ["employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "status", "emergencyContact"], ["status"]))}
+    ${panel("Assigned KPIs", template ? `<div class="topbar"><div><h2>${escapeHtml(template.name)}</h2><div class="hint">${escapeHtml(template.department)} · ${escapeHtml(template.jobRole)}</div></div><span class="badge ${template.status}">${escapeHtml(template.status)}</span></div>${table(kpis, ["title", "weight", "target"], [])}` : "<div class='empty'>No KPI assigned yet.</div>")}`;
 }
 
 function renderReports() {
@@ -1042,6 +1055,27 @@ function templateName(id) {
 function templateOptionsForEmployee(employee) {
   const matches = state.data.templates.filter(template => template.jobRole === employee.jobTitle && template.status !== "archived");
   return matches.length ? matches : state.data.templates.filter(template => template.status !== "archived");
+}
+
+function assignedTemplateForEmployee(employee) {
+  if (!employee) return null;
+  return state.data.templates.find(template => template.id === employee.templateId)
+    || state.data.templates.find(template => template.jobRole === employee.jobTitle && template.status !== "archived")
+    || null;
+}
+
+function employeeAssignedKpiRows(employee, appraisal = null) {
+  if (appraisal?.scores?.length) return appraisal.scores;
+  const template = assignedTemplateForEmployee(employee);
+  return (template?.items || []).map((item, index) => ({
+    id: item.id || `template-score-${index + 1}`,
+    title: item.title,
+    weight: item.weight,
+    target: item.target || "Meet or exceed approved target",
+    scoringGuide: item.scoringGuide || "Use the approved appraisal guide.",
+    employeeComment: "",
+    managerConfirmedEmployeeComment: false
+  }));
 }
 
 function periodName(id) {

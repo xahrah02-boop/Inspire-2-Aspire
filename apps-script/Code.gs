@@ -334,7 +334,9 @@ function reports_() {
 }
 
 function makeAppraisal_(employee, periodId) {
-  const template = readRows_("KpiTemplates").map(parseTemplate_).find(row => row.id === employee.templateId);
+  const templates = readRows_("KpiTemplates").map(parseTemplate_);
+  const template = templates.find(row => row.id === employee.templateId)
+    || templates.find(row => row.jobRole === employee.jobTitle && row.status !== "archived");
   return {
     id: "app-" + Date.now(),
     employeeId: employee.id,
