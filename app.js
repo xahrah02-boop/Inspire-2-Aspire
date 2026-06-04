@@ -257,8 +257,7 @@ function renderEmployees() {
   const rows = filterEmployees(state.data.employees);
   const page = paginateRows(rows, state.employeePage, state.employeePageSize);
   return `${employeeFilterToolbar()}
-    ${panel("Employee records", employeeTable(page.rows) + employeePagination(rows.length, page.totalPages))}
-    ${canManage() ? `<div class="toolbar"><button type="button" data-create-employee>Add Employee</button></div>` : ""}`;
+    ${panel("Employee records", employeeTable(page.rows) + employeePagination(rows.length, page.totalPages))}`;
 }
 
 function renderPeriods() {
@@ -670,6 +669,7 @@ function toolbar(placeholder, filters) {
 function employeeFilterToolbar() {
   const roleOptions = employeeRoleFilterOptions();
   return `<div class="toolbar">
+    ${canManage() ? `<button type="button" data-create-employee>Add Employee</button>` : ""}
     <div class="field inline-filter">
       <label>Search by name</label>
       <input id="employeeNameFilter" placeholder="Type employee name" value="${escapeHtml(state.employeeNameFilter)}">
