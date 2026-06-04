@@ -202,9 +202,10 @@ function renderUsers() {
 }
 
 function renderDepartments() {
-  return `<div class="split">
-    ${panel("Department master", (canManage() ? `<div class="toolbar"><button type="button" data-create-department>Add Department</button></div>` : "") + departmentTable())}
-    ${panel("Job roles", (canManage() ? `<div class="toolbar"><button type="button" data-create-job-role>Add Job Role</button></div>` : "") + jobRoleTable())}
+  return `${canManage() ? `<div class="toolbar page-actions"><button type="button" data-create-department>Add Department</button><button type="button" data-create-job-role>Add Job Role</button></div>` : ""}
+  <div class="split">
+    ${panel("Department master", departmentTable())}
+    ${panel("Job roles", jobRoleTable())}
   </div>`;
 }
 
