@@ -19,8 +19,9 @@ const labels = {
 async function api(path, options = {}) {
   const apiBaseUrl = window.FORGE_HR_CONFIG?.apiBaseUrl || "";
   const remoteToken = apiBaseUrl ? localStorage.getItem("forgeHrToken") : "";
+  const joiner = apiBaseUrl.includes("?") ? "&" : "?";
   const tokenPart = remoteToken ? `&token=${encodeURIComponent(remoteToken)}` : "";
-  const url = apiBaseUrl ? `${apiBaseUrl}${encodeURIComponent(path)}${tokenPart}` : path;
+  const url = apiBaseUrl ? `${apiBaseUrl}${joiner}path=${encodeURIComponent(path)}${tokenPart}` : path;
   const method = apiBaseUrl && options.method && options.method !== "GET" ? "POST" : options.method;
   const body = options.body ? { ...options.body } : undefined;
   if (apiBaseUrl && remoteToken && body) body.token = remoteToken;
