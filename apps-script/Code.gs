@@ -1,0 +1,290 @@
+const SHEETS = {
+  users: "Users",
+  employees: "Employees",
+  departments: "Departments",
+  jobRoles: "JobRoles",
+  kpiMaster: "KpiMaster",
+  templates: "KpiTemplates",
+  periods: "AppraisalPeriods",
+  appraisals: "Appraisals",
+  auditLogs: "AuditLogs"
+};
+
+function doGet(e) {
+  return handleRequest_(e, "GET");
+}
+
+function doPost(e) {
+  return handleRequest_(e, "POST");
+}
+
+function handleRequest_(e, method) {
+  try {
+    const path = String(e.parameter.path || "");
+    const body = parseBody_(e);
+    const token = e.parameter.token || body.token || "";
+    const user = token ? getUserByToken_(token) : null;
+
+    if (path === "/api/login" && method === "POST") return json_({ user: login_(body) });
+    if (!user && path !== "/api/health") return json_({ error: "Authentication required." }, 401);
+    if (path === "/api/health") return json_({ ok: true });
+    if (path === "/api/me") return json_({ user: publicUser_(user), dashboard: dashboardFor_(user), notifications: [] });
+    if (path === "/api/bootstrap") return json_(bootstrap_(user));
+    if (path === "/api/employees" && method === "POST") return json_(createEmployee_(user, body), 201);
+    if (path.indexOf("/api/employees/") === 0 && method === "POST") return json_(updateEmployee_(user, path.split("/").pop(), body));
+    if (path === "/api/kpis" && method === "POST") return json_(createKpi_(user, body), 201);
+    if (path.indexOf("/api/kpis/") === 0 && method === "POST") return json_(updateKpi_(user, path.split("/").pop(), body));
+    if (path === "/api/my-kpi-comments" && method === "POST") return json_(saveEmployeeKpiComments_(user, body));
+    if (path.indexOf("/api/appraisals/") === 0 && method === "POST") return json_(updateAppraisal_(user, path.split("/").pop(), body));
+    return json_({ error: "Route not found.", path }, 404);
+  } catch (error) {
+    return json_({ error: error.message }, 400);
+  }
+}
+
+function setupDatabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Object.values(SHEETS).forEach(name => {
+    if (!ss.getSheetByName(name)) ss.insertSheet(name);
+  });
+  setHeaders_("Users", ["id", "email", "name", "role", "status", "password", "token"]);
+  setHeaders_("Employees", ["id", "employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "lineManagerUserId", "status", "userAccountStatus", "templateId", "roleCategories", "userId", "workLocation", "emergencyContact", "notes"]);
+  setHeaders_("Departments", ["id", "name", "managerialRole", "supervisoryRole", "status"]);
+  setHeaders_("JobRoles", ["id", "title", "department", "status"]);
+  setHeaders_("KpiMaster", ["id", "code", "title", "description", "category", "department", "jobRole", "formula", "target", "weight", "scoringGuide", "dataSource", "frequency", "status"]);
+  setHeaders_("KpiTemplates", ["id", "name", "department", "jobRole", "status", "itemsJson"]);
+  setHeaders_("AppraisalPeriods", ["id", "name", "startDate", "endDate", "type", "status", "departmentsJson"]);
+  setHeaders_("Appraisals", ["id", "employeeId", "periodId", "managerUserId", "status", "scoresJson", "overallComment", "hrComment", "published", "acknowledged"]);
+  setHeaders_("AuditLogs", ["id", "userId", "action", "module", "record", "oldValue", "newValue", "createdAt"]);
+  seedIfEmpty_();
+}
+
+function seedIfEmpty_() {
+  if (readRows_("Users").length) return;
+  appendRow_("Users", { id: "u-hr", email: "hr.admin@company.test", name: "HR Admin", role: "HR_ADMIN", status: "active", password: "Password123!", token: "" });
+  appendRow_("Users", { id: "u-mgr-1", email: "grace.manager@company.test", name: "Grace Okafor", role: "LINE_MANAGER", status: "active", password: "Password123!", token: "" });
+  appendRow_("Users", { id: "u-emp-1", email: "john.operator@company.test", name: "John Okorie", role: "EMPLOYEE", status: "active", password: "Password123!", token: "" });
+  appendRow_("Departments", { id: "dept-1", name: "Production", managerialRole: "emp-1", supervisoryRole: "emp-1", status: "active" });
+  appendRow_("JobRoles", { id: "role-1", title: "Production Operator", department: "Production", status: "active" });
+  appendRow_("Employees", { id: "emp-1", employeeId: "EMP-001", firstName: "John", lastName: "Okorie", email: "john.operator@company.test", phone: "", department: "Production", jobTitle: "Production Operator", lineManagerUserId: "u-mgr-1", status: "confirmed", userAccountStatus: "active", templateId: "tpl-prod", roleCategories: "staff", userId: "u-emp-1", workLocation: "Plant A", emergencyContact: "", notes: "" });
+  appendRow_("KpiTemplates", { id: "tpl-prod", name: "Production Operator KPI Template", department: "Production", jobRole: "Production Operator", status: "active", itemsJson: JSON.stringify([{ id: "tpl-prod-1", title: "Output achievement", weight: 25 }, { id: "tpl-prod-2", title: "Quality of work", weight: 20 }, { id: "tpl-prod-3", title: "Attendance", weight: 55 }]) });
+  appendRow_("AppraisalPeriods", { id: "period-1", name: "Current Annual Review", startDate: "2026-01-01", endDate: "2026-12-31", type: "annual", status: "open", departmentsJson: JSON.stringify(["Production"]) });
+}
+
+function login_(body) {
+  const user = readRows_("Users").find(row => row.email === body.email && row.password === body.password && row.status === "active");
+  if (!user) throw new Error("Invalid email or password.");
+  user.token = Utilities.getUuid();
+  updateRow_("Users", user.id, user);
+  return publicUser_(user);
+}
+
+function publicUser_(user) {
+  return { id: user.id, email: user.email, name: user.name, role: user.role, status: user.status, token: user.token };
+}
+
+function getUserByToken_(token) {
+  return readRows_("Users").find(row => row.token === token && row.status === "active");
+}
+
+function bootstrap_(user) {
+  const employees = visibleEmployees_(user);
+  const appraisals = readRows_("Appraisals").map(parseAppraisal_).filter(appraisal => {
+    return user.role === "HR_ADMIN" || employees.some(employee => employee.id === appraisal.employeeId);
+  });
+  return {
+    user: publicUser_(user),
+    dashboard: dashboardFor_(user),
+    departments: readRows_("Departments"),
+    jobRoles: readRows_("JobRoles"),
+    employees,
+    kpiMaster: user.role === "EMPLOYEE" ? [] : readRows_("KpiMaster"),
+    templates: readRows_("KpiTemplates").map(parseTemplate_),
+    periods: readRows_("AppraisalPeriods").map(parsePeriod_),
+    appraisals,
+    reports: reports_(),
+    guides: [],
+    auditLogs: user.role === "HR_ADMIN" ? readRows_("AuditLogs") : []
+  };
+}
+
+function visibleEmployees_(user) {
+  const employees = readRows_("Employees");
+  if (user.role === "HR_ADMIN") return employees;
+  if (user.role === "LINE_MANAGER") return employees.filter(employee => employee.lineManagerUserId === user.id);
+  return employees.filter(employee => employee.userId === user.id);
+}
+
+function createEmployee_(user, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const id = "emp-" + Date.now();
+  const userId = "u-emp-" + Date.now();
+  appendRow_("Users", { id: userId, email: body.email, name: body.firstName + " " + body.lastName, role: "EMPLOYEE", status: "active", password: "Password123!", token: "" });
+  const employee = Object.assign({ id, userId, userAccountStatus: "active", roleCategories: "staff" }, body);
+  appendRow_("Employees", employee);
+  audit_(user, "Employee created", "Employee Master", employee.employeeId, "", employee.email);
+  return employee;
+}
+
+function updateEmployee_(user, id, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const employee = Object.assign(readById_("Employees", id), body);
+  updateRow_("Employees", id, employee);
+  audit_(user, "Employee updated", "Employee Master", employee.employeeId, "", JSON.stringify(body));
+  return employee;
+}
+
+function createKpi_(user, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const kpi = Object.assign({ id: "kpi-" + Date.now(), status: "active" }, body);
+  appendRow_("KpiMaster", kpi);
+  return kpi;
+}
+
+function updateKpi_(user, id, body) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const kpi = Object.assign(readById_("KpiMaster", id), body);
+  updateRow_("KpiMaster", id, kpi);
+  return kpi;
+}
+
+function saveEmployeeKpiComments_(user, body) {
+  requireRole_(user, ["EMPLOYEE"]);
+  const employee = readRows_("Employees").find(row => row.userId === user.id);
+  if (!employee) throw new Error("Employee profile not found.");
+  let appraisal = readRows_("Appraisals").map(parseAppraisal_).find(row => row.employeeId === employee.id && row.periodId === body.periodId);
+  if (!appraisal) {
+    appraisal = makeAppraisal_(employee, body.periodId);
+    appendRow_("Appraisals", serializeAppraisal_(appraisal));
+  }
+  appraisal.scores.forEach(score => {
+    const item = (body.comments || []).find(comment => comment.scoreId === score.id || comment.title === score.title);
+    if (item) {
+      score.employeeComment = item.employeeComment || "";
+      score.managerConfirmedEmployeeComment = false;
+    }
+  });
+  updateRow_("Appraisals", appraisal.id, serializeAppraisal_(appraisal));
+  return appraisal;
+}
+
+function updateAppraisal_(user, id, body) {
+  const appraisal = parseAppraisal_(readById_("Appraisals", id));
+  if (user.role === "LINE_MANAGER") {
+    const employee = readById_("Employees", appraisal.employeeId);
+    if (employee.lineManagerUserId !== user.id) throw new Error("Line managers can only update assigned employees.");
+    if (body.confirmEmployeeComments) appraisal.scores.forEach(score => score.managerConfirmedEmployeeComment = true);
+    if (body.scores) appraisal.scores = body.scores;
+    if (body.submit) appraisal.status = "Submitted";
+  }
+  updateRow_("Appraisals", id, serializeAppraisal_(appraisal));
+  return appraisal;
+}
+
+function dashboardFor_(user) {
+  const employees = visibleEmployees_(user);
+  return { cards: [["Total employees", employees.length], ["Departments", readRows_("Departments").length], ["Open periods", readRows_("AppraisalPeriods").filter(p => p.status === "open").length]] };
+}
+
+function reports_() {
+  return { completion: { completed: 0, pending: 0 }, byDepartment: [], trainingNeeds: [] };
+}
+
+function makeAppraisal_(employee, periodId) {
+  const template = readRows_("KpiTemplates").map(parseTemplate_).find(row => row.id === employee.templateId);
+  return {
+    id: "app-" + Date.now(),
+    employeeId: employee.id,
+    periodId,
+    managerUserId: employee.lineManagerUserId,
+    status: "Draft",
+    scores: (template ? template.items : []).map((item, i) => ({ id: "score-" + Date.now() + "-" + i, title: item.title, weight: item.weight, target: "", score: 18, employeeComment: "", managerConfirmedEmployeeComment: false }))
+  };
+}
+
+function parseTemplate_(row) {
+  row.items = safeJson_(row.itemsJson, []);
+  return row;
+}
+
+function parsePeriod_(row) {
+  row.departments = safeJson_(row.departmentsJson, []);
+  return row;
+}
+
+function parseAppraisal_(row) {
+  row.scores = safeJson_(row.scoresJson, []);
+  return row;
+}
+
+function serializeAppraisal_(appraisal) {
+  const row = Object.assign({}, appraisal);
+  row.scoresJson = JSON.stringify(appraisal.scores || []);
+  delete row.scores;
+  return row;
+}
+
+function safeJson_(value, fallback) {
+  try { return value ? JSON.parse(value) : fallback; } catch (e) { return fallback; }
+}
+
+function requireRole_(user, roles) {
+  if (roles.indexOf(user.role) === -1) throw new Error("Not allowed.");
+}
+
+function audit_(user, action, module, record, oldValue, newValue) {
+  appendRow_("AuditLogs", { id: "audit-" + Date.now(), userId: user.id, action, module, record, oldValue, newValue, createdAt: new Date().toISOString() });
+}
+
+function setHeaders_(sheetName, headers) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (sheet.getLastRow() === 0) sheet.appendRow(headers);
+}
+
+function readRows_(sheetName) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values[0];
+  return values.slice(1).filter(row => row.some(cell => cell !== "")).map(row => {
+    const obj = {};
+    headers.forEach((header, i) => obj[header] = row[i]);
+    return obj;
+  });
+}
+
+function readById_(sheetName, id) {
+  const row = readRows_(sheetName).find(item => item.id === id);
+  if (!row) throw new Error(sheetName + " record not found.");
+  return row;
+}
+
+function appendRow_(sheetName, obj) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  sheet.appendRow(headers.map(header => obj[header] || ""));
+}
+
+function updateRow_(sheetName, id, obj) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0];
+  for (let r = 1; r < values.length; r++) {
+    if (values[r][0] === id) {
+      sheet.getRange(r + 1, 1, 1, headers.length).setValues([headers.map(header => obj[header] || "")]);
+      return;
+    }
+  }
+  throw new Error(sheetName + " record not found.");
+}
+
+function parseBody_(e) {
+  if (!e || !e.postData || !e.postData.contents) return {};
+  try { return JSON.parse(e.postData.contents); } catch (error) { return {}; }
+}
+
+function json_(payload, status) {
+  const output = ContentService.createTextOutput(JSON.stringify(Object.assign({ status: status || 200 }, payload)));
+  output.setMimeType(ContentService.MimeType.JSON);
+  return output;
+}

@@ -1,0 +1,293 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  SUPER_ADMIN
+  HR_ADMIN
+  LINE_MANAGER
+  EMPLOYEE
+}
+
+enum UserStatus {
+  active
+  inactive
+  suspended
+}
+
+enum RecordStatus {
+  active
+  archived
+}
+
+enum TemplateStatus {
+  draft
+  active
+  archived
+}
+
+enum EmployeeStatus {
+  active
+  probation
+  confirmed
+  exited
+  suspended
+}
+
+enum PeriodStatus {
+  open
+  closed
+  locked
+}
+
+enum AppraisalStatus {
+  NotStarted
+  Draft
+  Submitted
+  Returned
+  Approved
+  Published
+  Acknowledged
+  Locked
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  role         RoleName
+  status       UserStatus   @default(active)
+  employee     Employee?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  auditLogs    AuditLog[]
+  notifications Notification[]
+}
+
+model Department {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  headUserId  String?
+  status      RecordStatus @default(active)
+  jobRoles    JobRole[]
+  employees   Employee[]
+  kpis        KpiMaster[]
+  templates   KpiTemplate[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model JobRole {
+  id                  String       @id @default(cuid())
+  title               String
+  departmentId        String
+  department          Department   @relation(fields: [departmentId], references: [id])
+  defaultTemplateId   String?
+  defaultTemplate     KpiTemplate? @relation("DefaultTemplate", fields: [defaultTemplateId], references: [id])
+  employees           Employee[]
+  kpis                KpiMaster[]
+  templates           KpiTemplate[]
+  status              RecordStatus @default(active)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+model Employee {
+  id                   String         @id @default(cuid())
+  employeeId           String         @unique
+  firstName            String
+  lastName             String
+  email                String         @unique
+  phone                String?
+  departmentId         String
+  department           Department     @relation(fields: [departmentId], references: [id])
+  jobRoleId            String
+  jobRole              JobRole        @relation(fields: [jobRoleId], references: [id])
+  employmentType       String
+  dateOfEmployment     DateTime
+  confirmationStatus   String
+  lineManagerUserId    String
+  lineManager          User           @relation("EmployeeLineManager", fields: [lineManagerUserId], references: [id])
+  workLocation         String
+  status               EmployeeStatus @default(probation)
+  userAccountStatus    UserStatus     @default(active)
+  assignedTemplateId   String?
+  assignedTemplate     KpiTemplate?   @relation(fields: [assignedTemplateId], references: [id])
+  userId               String?        @unique
+  user                 User?          @relation(fields: [userId], references: [id])
+  emergencyContact     String?
+  notes                String?
+  appraisals           Appraisal[]
+  onboardingProgress   EmployeeOnboardingProgress[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+}
+
+model KpiCategory {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  kpis      KpiMaster[]
+  createdAt DateTime    @default(now())
+}
+
+model KpiMaster {
+  id                 String       @id @default(cuid())
+  code               String       @unique
+  title              String
+  description        String
+  categoryId         String
+  category           KpiCategory  @relation(fields: [categoryId], references: [id])
+  departmentId       String?
+  department         Department?  @relation(fields: [departmentId], references: [id])
+  jobRoleId          String?
+  jobRole            JobRole?     @relation(fields: [jobRoleId], references: [id])
+  measurementFormula String
+  target             String
+  defaultWeight      Decimal      @db.Decimal(5, 2)
+  scoringGuide       String
+  dataSource         String
+  frequency          String
+  status             RecordStatus @default(active)
+  createdById        String
+  createdBy          User         @relation("KpiCreatedBy", fields: [createdById], references: [id])
+  modifiedById       String?
+  modifiedBy         User?        @relation("KpiModifiedBy", fields: [modifiedById], references: [id])
+  templateItems      KpiTemplateItem[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model KpiTemplate {
+  id           String            @id @default(cuid())
+  name         String
+  departmentId String?
+  department   Department?       @relation(fields: [departmentId], references: [id])
+  jobRoleId    String?
+  jobRole      JobRole?          @relation(fields: [jobRoleId], references: [id])
+  items        KpiTemplateItem[]
+  employees    Employee[]
+  status       TemplateStatus    @default(draft)
+  createdById  String
+  createdBy    User             @relation(fields: [createdById], references: [id])
+  defaultFor   JobRole[]         @relation("DefaultTemplate")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model KpiTemplateItem {
+  id          String      @id @default(cuid())
+  templateId  String
+  template    KpiTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  kpiId       String
+  kpi         KpiMaster   @relation(fields: [kpiId], references: [id])
+  weight      Decimal     @db.Decimal(5, 2)
+  sortOrder   Int         @default(0)
+}
+
+model AppraisalPeriod {
+  id          String      @id @default(cuid())
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  type        String
+  status      PeriodStatus @default(open)
+  appraisals  Appraisal[]
+  createdById String
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Appraisal {
+  id                         String           @id @default(cuid())
+  employeeId                 String
+  employee                   Employee         @relation(fields: [employeeId], references: [id])
+  periodId                   String
+  period                     AppraisalPeriod  @relation(fields: [periodId], references: [id])
+  managerUserId              String
+  manager                    User             @relation("AppraisalManager", fields: [managerUserId], references: [id])
+  status                     AppraisalStatus  @default(NotStarted)
+  overallManagerComment      String?
+  strengths                  String?
+  areasForImprovement        String?
+  trainingRecommendation     String?
+  promotionRecommendation    String?
+  confirmationRecommendation String?
+  finalScore                 Decimal?         @db.Decimal(4, 2)
+  finalRating                String?
+  hrComment                  String?
+  employeeComment            String?
+  scores                     AppraisalKpiScore[]
+  submittedAt                DateTime?
+  approvedAt                 DateTime?
+  publishedAt                DateTime?
+  acknowledgedAt             DateTime?
+  createdAt                  DateTime         @default(now())
+  updatedAt                  DateTime         @updatedAt
+}
+
+model AppraisalKpiScore {
+  id              String    @id @default(cuid())
+  appraisalId     String
+  appraisal       Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+  kpiCodeSnapshot String
+  kpiTitleSnapshot String
+  kpiDescriptionSnapshot String
+  targetSnapshot  String
+  weightSnapshot  Decimal   @db.Decimal(5, 2)
+  scoringGuideSnapshot String
+  score           Int
+  actualResult    String?
+  managerComment  String?
+  evidenceNote    String?
+  weightedScore   Decimal   @db.Decimal(5, 2)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model OnboardingGuide {
+  id        String   @id @default(cuid())
+  audience  RoleName?
+  title     String
+  body      String
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  progress  EmployeeOnboardingProgress[]
+  createdAt DateTime @default(now())
+}
+
+model EmployeeOnboardingProgress {
+  id          String          @id @default(cuid())
+  employeeId  String
+  employee    Employee        @relation(fields: [employeeId], references: [id])
+  guideId     String
+  guide       OnboardingGuide @relation(fields: [guideId], references: [id])
+  completed   Boolean         @default(false)
+  completedAt DateTime?
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+  action         String
+  module         String
+  recordAffected String
+  oldValue       Json?
+  newValue       Json?
+  createdAt      DateTime @default(now())
+}

@@ -1,0 +1,18 @@
+{
+  "name": "manufacturing-hr-performance-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HR performance appraisal system for a manufacturing company.",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "recommendedStack": {
+    "frontend": "Next.js + React + TypeScript",
+    "backend": "Next.js API routes or Node.js API",
+    "database": "PostgreSQL",
+    "orm": "Prisma"
+  }
+}
