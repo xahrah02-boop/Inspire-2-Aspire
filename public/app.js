@@ -119,12 +119,12 @@ function renderShell() {
       <aside class="sidebar">
         <div class="brand"><div class="mark">FH</div><div><strong>ForgeHR</strong><div class="hint">Performance appraisal</div></div></div>
         <div class="userbox"><strong>${escapeHtml(state.user.name)}</strong><span>${escapeHtml(state.user.role.replace("_", " "))}</span></div>
-        <nav class="nav">${menu.map(item => `<button data-view="${item}" class="${state.view === item ? "active" : ""}">${labels[item]}</button>`).join("")}</nav>
+        <nav class="nav">${menu.map(item => `<button data-view="${item}" class="${state.view === item ? "active" : ""}">${navLabel(item)}</button>`).join("")}</nav>
         <button class="secondary" id="logout">Sign out</button>
       </aside>
       <section class="content">
         <div class="topbar">
-          <div><h1>${labels[state.view]}</h1><div class="hint">${subtitleFor(state.view)}</div></div>
+          <div><h1>${navLabel(state.view)}</h1><div class="hint">${subtitleFor(state.view)}</div></div>
           <div class="hint">${new Date().toLocaleDateString()} · ${escapeHtml(state.data.periods[0]?.name || "No open period")}</div>
         </div>
         <div id="view"></div>
@@ -150,6 +150,11 @@ function renderShell() {
 function setDefaultViewForRole() {
   const menu = roleMenus[state.user?.role] || ["dashboard"];
   state.view = menu[0];
+}
+
+function navLabel(item) {
+  if (state.user?.role === "EMPLOYEE" && item === "kpis") return "My Assigned KPI";
+  return labels[item];
 }
 
 function subtitleFor(view) {
@@ -225,15 +230,14 @@ function renderEmployeeKpis() {
     </div>
     <form id="employeeKpiCommentForm" data-period-id="${escapeHtml(periodId)}">
       <div class="table-wrap"><table><thead><tr>
-        <th>KPI</th><th>Weight</th><th>Target</th><th>Scoring guide</th><th>My comment</th><th>Manager confirmed</th>
+        <th>KPI</th><th>Weight</th><th>Target</th><th>My comment</th><th>Manager confirmed</th>
       </tr></thead><tbody>${rows.map(score => `<tr>
         <td><strong>${escapeHtml(score.title)}</strong></td>
         <td>${escapeHtml(score.weight)}%</td>
         <td>${escapeHtml(score.target)}</td>
-        <td>${escapeHtml(score.scoringGuide || "Use the approved 1 to 5 appraisal guide.")}</td>
         <td>
           <input type="hidden" name="scoreId" value="${escapeHtml(score.id)}">
-          <textarea name="employeeComment" data-score-id="${escapeHtml(score.id)}" placeholder="Comment on this KPI">${escapeHtml(score.employeeComment || "")}</textarea>
+          <textarea name="employeeComment" data-score-id="${escapeHtml(score.id)}" data-score-title="${escapeHtml(score.title)}" placeholder="Comment on this KPI">${escapeHtml(score.employeeComment || "")}</textarea>
         </td>
         <td><span class="badge ${score.managerConfirmedEmployeeComment ? "active" : "Draft"}">${score.managerConfirmedEmployeeComment ? "Confirmed" : "Pending"}</span></td>
       </tr>`).join("")}</tbody></table></div>
@@ -359,10 +363,7 @@ function renderProfile() {
   }
   const employee = state.data.employees[0];
   if (!employee) return "<div class='empty'>No employee profile found.</div>";
-  const template = assignedTemplateForEmployee(employee);
-  const kpis = employeeAssignedKpiRows(employee, state.data.appraisals[0]);
-  return `${panel("My profile", table([employee], ["employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "status", "emergencyContact"], ["status"]))}
-    ${panel("Assigned KPIs", template ? `<div class="topbar"><div><h2>${escapeHtml(template.name)}</h2><div class="hint">${escapeHtml(template.department)} · ${escapeHtml(template.jobRole)}</div></div><span class="badge ${template.status}">${escapeHtml(template.status)}</span></div>${table(kpis, ["title", "weight", "target"], [])}` : "<div class='empty'>No KPI assigned yet.</div>")}`;
+  return panel("My profile", table([employee], ["employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "status", "emergencyContact"], ["status"]));
 }
 
 function managerAssignedEmployeesTable(rows) {
@@ -1321,6 +1322,7 @@ function attachHandlers() {
     event.preventDefault();
     const comments = Array.from(event.currentTarget.querySelectorAll("textarea[name='employeeComment']")).map(input => ({
       scoreId: input.dataset.scoreId,
+      title: input.dataset.scoreTitle,
       employeeComment: input.value
     }));
     await api("/api/my-kpi-comments", { method: "POST", body: { periodId: event.currentTarget.dataset.periodId, comments } });

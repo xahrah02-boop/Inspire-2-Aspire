@@ -540,7 +540,10 @@ function appraisalQueueFor(user, employees) {
 }
 
 function makeEmptyAppraisal(employee, periodId) {
-  const template = templateFor(employee) || data.templates[0];
+  const template = templateFor(employee);
+  const items = template?.items?.length
+    ? template.items
+    : data.kpiMaster.filter(kpi => kpiMatchesEmployee(kpi, employee));
   return {
     id: `queue-${employee.id}-${periodId}`,
     employeeId: employee.id,
@@ -556,7 +559,7 @@ function makeEmptyAppraisal(employee, periodId) {
     hrComment: "",
     published: false,
     acknowledged: false,
-    scores: template.items.map((item, index) => ({
+    scores: items.map((item, index) => ({
       id: `queue-${employee.id}-score-${index + 1}`,
       title: item.title,
       weight: item.weight,

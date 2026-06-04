@@ -449,13 +449,16 @@ function makeAppraisal_(employee, periodId) {
   const templates = readRows_("KpiTemplates").map(parseTemplate_);
   const template = templates.find(row => row.id === employee.templateId)
     || templates.find(row => row.jobRole === employee.jobTitle && row.status !== "archived");
+  const items = template ? template.items : readRows_("KpiMaster").filter(function(kpi) {
+    return kpiMatchesEmployee_(kpi, employee);
+  });
   return {
     id: "app-" + Date.now(),
     employeeId: employee.id,
     periodId,
     managerUserId: employee.lineManagerUserId,
     status: "Draft",
-    scores: (template ? template.items : []).map((item, i) => ({ id: "score-" + Date.now() + "-" + i, title: item.title, weight: item.weight, target: "", score: 18, employeeComment: "", managerConfirmedEmployeeComment: false }))
+    scores: items.map((item, i) => ({ id: "score-" + Date.now() + "-" + i, title: item.title, weight: item.weight, target: item.target || "", score: 18, employeeComment: "", managerConfirmedEmployeeComment: false }))
   };
 }
 
