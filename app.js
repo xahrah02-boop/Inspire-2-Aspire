@@ -203,8 +203,8 @@ function renderUsers() {
 
 function renderDepartments() {
   return `<div class="split">
-    ${panel("Department master", departmentTable() + (canManage() ? departmentForm() : ""))}
-    ${panel("Job roles", jobRoleTable() + (canManage() ? jobRoleForm() : ""))}
+    ${panel("Department master", (canManage() ? `<div class="toolbar"><button type="button" data-create-department>Add Department</button></div>` : "") + departmentTable())}
+    ${panel("Job roles", (canManage() ? `<div class="toolbar"><button type="button" data-create-job-role>Add Job Role</button></div>` : "") + jobRoleTable())}
   </div>`;
 }
 
@@ -442,6 +442,18 @@ function departmentForm() {
   </form>`;
 }
 
+function departmentCreateModal() {
+  return `<div class="modal-backdrop" data-close-modal>
+    <section class="modal narrow-modal" role="dialog" aria-modal="true">
+      <div class="topbar">
+        <div><h2>Add Department</h2><div class="hint">Create a department master record.</div></div>
+        <button class="secondary" data-close-modal type="button">Close</button>
+      </div>
+      ${departmentForm()}
+    </section>
+  </div>`;
+}
+
 function departmentTable() {
   if (!state.data.departments.length) return "<div class='empty'>No departments found.</div>";
   return `<div class="table-wrap"><table><thead><tr>
@@ -474,6 +486,18 @@ function jobRoleForm() {
     <div class="field"><label>Status</label><select name="status">${["active", "archived"].map(status => `<option value="${status}">${status}</option>`).join("")}</select></div>
     <button type="submit">Add job role</button>
   </form>`;
+}
+
+function jobRoleCreateModal() {
+  return `<div class="modal-backdrop" data-close-modal>
+    <section class="modal narrow-modal" role="dialog" aria-modal="true">
+      <div class="topbar">
+        <div><h2>Add Job Role</h2><div class="hint">Create a job role and link it to a department.</div></div>
+        <button class="secondary" data-close-modal type="button">Close</button>
+      </div>
+      ${jobRoleForm()}
+    </section>
+  </div>`;
 }
 
 function departmentModal(dept) {
@@ -1242,10 +1266,13 @@ function attachHandlers() {
     state.filter = button.dataset.filter;
     renderView();
   }));
+  document.querySelector("[data-create-department]")?.addEventListener("click", () => openModal(departmentCreateModal()));
+  document.querySelector("[data-create-job-role]")?.addEventListener("click", () => openModal(jobRoleCreateModal()));
   document.querySelector("#departmentForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     await api("/api/departments", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
     state.data = await api("/api/bootstrap");
+    document.querySelector(".modal-backdrop")?.remove();
     toast("Department added");
     renderShell();
   });
@@ -1261,6 +1288,7 @@ function attachHandlers() {
     event.preventDefault();
     await api("/api/job-roles", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
     state.data = await api("/api/bootstrap");
+    document.querySelector(".modal-backdrop")?.remove();
     toast("Job role added");
     renderShell();
   });
