@@ -107,7 +107,7 @@ export function createSeedData() {
   }));
 
   const employees = managerEmployees.concat([
-    ["EMP-001", "John", "Okorie", "Production", "Production Operator", "u-mgr-1", "u-emp-1", "tpl-prod"],
+    ["EMP-0001", "John", "Okorie", "Production", "Production Operator", "u-mgr-1", "u-emp-1", "tpl-prod"],
     ["EMP-002", "Mary", "Adeyemi", "Sales", "Sales Officer", "u-mgr-2", "u-emp-2", "tpl-sales"],
     ["EMP-003", "Kevin", "Boateng", "Warehouse / Stores", "Warehouse Officer", "u-mgr-3", "u-emp-3", "tpl-warehouse"],
     ["EMP-004", "Linda", "Eze", "Maintenance / Engineering", "Maintenance Technician", "u-mgr-1", "u-emp-4", "tpl-maint"],
@@ -156,7 +156,7 @@ export function createSeedData() {
   ];
 
   const auditLogs = [
-    { id: "audit-1", userId: "u-hr", action: "KPI template assigned", module: "Employee Master", record: "EMP-001", createdAt: now, oldValue: "", newValue: "tpl-prod" },
+    { id: "audit-1", userId: "u-hr", action: "KPI template assigned", module: "Employee Master", record: "EMP-0001", createdAt: now, oldValue: "", newValue: "tpl-prod" },
     { id: "audit-2", userId: "u-mgr-2", action: "Appraisal submitted", module: "Appraisals", record: "app-2", createdAt: now, oldValue: "Draft", newValue: "Submitted" }
   ];
 

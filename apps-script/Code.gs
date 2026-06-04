@@ -70,7 +70,7 @@ function seedIfEmpty_() {
   appendRow_("Users", { id: "u-emp-1", email: "john.operator@company.test", name: "John Okorie", role: "EMPLOYEE", status: "active", password: "Password123!", token: "" });
   appendRow_("Departments", { id: "dept-1", name: "Production", managerialRole: "emp-1", supervisoryRole: "emp-1", status: "active" });
   appendRow_("JobRoles", { id: "role-1", title: "Production Operator", department: "Production", status: "active" });
-  appendRow_("Employees", { id: "emp-1", employeeId: "EMP-001", firstName: "John", lastName: "Okorie", email: "john.operator@company.test", phone: "", department: "Production", jobTitle: "Production Operator", lineManagerUserId: "u-mgr-1", status: "confirmed", userAccountStatus: "active", templateId: "tpl-prod", roleCategories: "staff", userId: "u-emp-1", workLocation: "Plant A", emergencyContact: "", notes: "" });
+  appendRow_("Employees", { id: "emp-1", employeeId: "EMP-0001", firstName: "John", lastName: "Okorie", email: "john.operator@company.test", phone: "", department: "Production", jobTitle: "Production Operator", lineManagerUserId: "u-mgr-1", status: "confirmed", userAccountStatus: "active", templateId: "tpl-prod", roleCategories: "staff", userId: "u-emp-1", workLocation: "Plant A", emergencyContact: "", notes: "" });
   appendRow_("KpiTemplates", { id: "tpl-prod", name: "Production Operator KPI Template", department: "Production", jobRole: "Production Operator", status: "active", itemsJson: JSON.stringify([{ id: "tpl-prod-1", title: "Output achievement", weight: 25 }, { id: "tpl-prod-2", title: "Quality of work", weight: 20 }, { id: "tpl-prod-3", title: "Attendance", weight: 55 }]) });
   appendRow_("AppraisalPeriods", { id: "period-1", name: "Current Annual Review", startDate: "2026-01-01", endDate: "2026-12-31", type: "annual", status: "open", departmentsJson: JSON.stringify(["Production"]) });
 }
@@ -233,7 +233,7 @@ function nextEmployeeId_() {
     return match ? Math.max(max, Number(match[1])) : max;
   }, 0);
   const nextNumber = String(maxNumber + 1);
-  return "EMP-" + ("000" + nextNumber).slice(-3);
+  return "EMP-" + ("0000" + nextNumber).slice(-4);
 }
 
 function createKpi_(user, body) {

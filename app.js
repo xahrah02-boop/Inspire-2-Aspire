@@ -959,7 +959,7 @@ function generateEmployeeId() {
     const match = String(employee.employeeId || "").match(/(\d+)$/);
     return match ? Math.max(max, Number(match[1])) : max;
   }, 0);
-  return `EMP-${String(maxNumber + 1).padStart(3, "0")}`;
+  return `EMP-${String(maxNumber + 1).padStart(4, "0")}`;
 }
 
 function departmentOptions() {
@@ -1176,10 +1176,11 @@ function attachHandlers() {
   document.querySelector("#employeeForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     const body = formObject(event.currentTarget);
+    body.employeeId = body.employeeId || generateEmployeeId();
     const errorEl = document.querySelector("#employeeFormError");
-    const missing = ["employeeId", "firstName", "lastName", "email"].filter(field => !String(body[field] || "").trim());
+    const missing = ["firstName", "lastName", "email"].filter(field => !String(body[field] || "").trim());
     if (missing.length) {
-      if (errorEl) errorEl.textContent = "Please enter employee ID, first name, last name, and email.";
+      if (errorEl) errorEl.textContent = "Please enter first name, last name, and email.";
       return;
     }
     try {

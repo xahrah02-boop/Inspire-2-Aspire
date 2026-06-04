@@ -130,7 +130,7 @@ function nextEmployeeId() {
     const match = String(employee.employeeId || "").match(/(\d+)$/);
     return match ? Math.max(max, Number(match[1])) : max;
   }, 0);
-  return `EMP-${String(maxNumber + 1).padStart(3, "0")}`;
+  return `EMP-${String(maxNumber + 1).padStart(4, "0")}`;
 }
 
 function normalizeList(value) {
