@@ -63,6 +63,7 @@ function setupDatabase() {
   setHeaders_("Appraisals", ["id", "employeeId", "periodId", "managerUserId", "status", "scoresJson", "overallComment", "hrComment", "published", "acknowledged"]);
   setHeaders_("AuditLogs", ["id", "userId", "action", "module", "record", "oldValue", "newValue", "createdAt"]);
   seedIfEmpty_();
+  ensureKpiMasterSeeds_();
 }
 
 function seedIfEmpty_() {
@@ -75,6 +76,60 @@ function seedIfEmpty_() {
   appendRow_("Employees", { id: "emp-1", employeeId: "EMP-0001", firstName: "John", lastName: "Okorie", email: "john.operator@company.test", phone: "", department: "Production", jobTitle: "Production Operator", lineManagerUserId: "u-mgr-1", status: "confirmed", userAccountStatus: "active", templateId: "tpl-prod", roleCategories: "staff", userId: "u-emp-1", workLocation: "Plant A", emergencyContact: "", notes: "" });
   appendRow_("KpiTemplates", { id: "tpl-prod", name: "Production Operator KPI Template", department: "Production", jobRole: "Production Operator", status: "active", itemsJson: JSON.stringify([{ id: "tpl-prod-1", title: "Output achievement", weight: 25 }, { id: "tpl-prod-2", title: "Quality of work", weight: 20 }, { id: "tpl-prod-3", title: "Attendance", weight: 55 }]) });
   appendRow_("AppraisalPeriods", { id: "period-1", name: "Current Annual Review", startDate: "2026-01-01", endDate: "2026-12-31", type: "annual", status: "open", departmentsJson: JSON.stringify(["Production"]) });
+}
+
+function ensureKpiMasterSeeds_() {
+  ensureDepartment_("Production");
+  ensureDepartment_("Sales");
+  ensureJobRole_("Production Operator", "Production");
+  ensureJobRole_("Sales Officer", "Sales");
+  ensureKpi_("kpi-prod-001", "KPI-PROD-001", "Output achievement", "Production", "Production Operator", "Job-specific performance", 25);
+  ensureKpi_("kpi-prod-002", "KPI-PROD-002", "Quality of work", "Production", "Production Operator", "Quality of work", 20);
+  ensureKpi_("kpi-prod-003", "KPI-PROD-003", "Waste control", "Production", "Production Operator", "Productivity", 15);
+  ensureKpi_("kpi-sales-001", "KPI-SALES-001", "Sales volume achievement", "Sales", "Sales Officer", "Job-specific performance", 25);
+  ensureKpi_("kpi-sales-002", "KPI-SALES-002", "Revenue achievement", "Sales", "Sales Officer", "Productivity", 20);
+  ensureTemplate_("tpl-sales", "Sales Officer KPI Template", "Sales", "Sales Officer", [
+    { id: "tpl-sales-1", title: "Sales volume achievement", weight: 25 },
+    { id: "tpl-sales-2", title: "Revenue achievement", weight: 20 },
+    { id: "tpl-sales-3", title: "New customer acquisition", weight: 15 },
+    { id: "tpl-sales-4", title: "Customer retention", weight: 40 }
+  ]);
+}
+
+function ensureDepartment_(name) {
+  const exists = readRows_("Departments").some(function(row) { return row.name === name; });
+  if (!exists) appendRow_("Departments", { id: "dept-" + Date.now() + "-" + name.replace(/\W/g, ""), name: name, managerialRole: "", supervisoryRole: "", status: "active" });
+}
+
+function ensureJobRole_(title, department) {
+  const exists = readRows_("JobRoles").some(function(row) { return row.title === title && row.department === department; });
+  if (!exists) appendRow_("JobRoles", { id: "role-" + Date.now() + "-" + title.replace(/\W/g, ""), title: title, department: department, status: "active" });
+}
+
+function ensureKpi_(id, code, title, department, jobRole, category, weight) {
+  const exists = readRows_("KpiMaster").some(function(row) { return row.code === code; });
+  if (exists) return;
+  appendRow_("KpiMaster", {
+    id: id,
+    code: code,
+    title: title,
+    description: title + " measured against approved departmental expectations.",
+    category: category,
+    department: department,
+    jobRole: jobRole,
+    formula: "Actual performance / target performance",
+    target: "Meet or exceed target",
+    weight: weight,
+    scoringGuide: "Use approved evidence and score fairly.",
+    dataSource: "Manager evidence",
+    frequency: "quarterly",
+    status: "active"
+  });
+}
+
+function ensureTemplate_(id, name, department, jobRole, items) {
+  const exists = readRows_("KpiTemplates").some(function(row) { return row.id === id || row.name === name; });
+  if (!exists) appendRow_("KpiTemplates", { id: id, name: name, department: department, jobRole: jobRole, status: "active", itemsJson: JSON.stringify(items) });
 }
 
 function login_(body) {
