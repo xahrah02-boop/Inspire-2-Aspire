@@ -31,7 +31,11 @@ async function api(path, options = {}) {
     method,
     body: body ? JSON.stringify(body) : undefined
   };
-  if (body) fetchOptions.headers = { "content-type": "text/plain;charset=utf-8" };
+  if (body) {
+    fetchOptions.headers = apiBaseUrl
+      ? { "content-type": "text/plain;charset=utf-8" }
+      : { "content-type": "application/json" };
+  }
   const res = await fetch(url, fetchOptions);
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: "Request failed" }));
@@ -54,6 +58,10 @@ function escapeHtml(value) {
 }
 
 async function init() {
+  if (window.FORGE_HR_CONFIG?.apiBaseUrl && !localStorage.getItem("forgeHrToken")) {
+    renderLogin();
+    return;
+  }
   try {
     const me = await api("/api/me");
     state.user = me.user;
