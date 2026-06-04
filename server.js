@@ -474,13 +474,14 @@ async function handleApi(req, res, url) {
 function bootstrapPayload(user) {
   const employees = visibleEmployees(user);
   const appraisals = appraisalQueueFor(user, employees);
+  const employeeKpis = data.kpiMaster.filter(kpi => employees.some(employee => kpiMatchesEmployee(kpi, employee)));
   return {
     user: publicUser(user),
     dashboard: dashboardFor(user),
     departments: data.departments,
     jobRoles: data.jobRoles,
     employees,
-    kpiMaster: [Roles.SUPER_ADMIN, Roles.HR_ADMIN].includes(user.role) ? data.kpiMaster : [],
+    kpiMaster: [Roles.SUPER_ADMIN, Roles.HR_ADMIN].includes(user.role) ? data.kpiMaster : employeeKpis,
     templates: [Roles.EMPLOYEE].includes(user.role) ? data.templates.filter(t => employees.some(e => e.templateId === t.id)) : data.templates,
     periods: data.appraisalPeriods,
     appraisals,
@@ -489,6 +490,12 @@ function bootstrapPayload(user) {
     guides: data.guides,
     auditLogs: [Roles.SUPER_ADMIN, Roles.HR_ADMIN].includes(user.role) ? data.auditLogs : []
   };
+}
+
+function kpiMatchesEmployee(kpi, employee) {
+  const departmentMatch = kpi.department === "All" || kpi.department === employee.department;
+  const roleMatch = kpi.jobRole === "All" || kpi.jobRole === employee.jobTitle;
+  return kpi.status !== "archived" && departmentMatch && roleMatch;
 }
 
 function appraisalQueueFor(user, employees) {

@@ -95,6 +95,12 @@ function getUserByToken_(token) {
 
 function bootstrap_(user) {
   const employees = visibleEmployees_(user);
+  const allKpis = readRows_("KpiMaster");
+  const visibleKpis = user.role === "EMPLOYEE" ? allKpis.filter(function(kpi) {
+    return employees.some(function(employee) {
+      return kpiMatchesEmployee_(kpi, employee);
+    });
+  }) : allKpis;
   const appraisals = readRows_("Appraisals").map(parseAppraisal_).filter(appraisal => {
     return user.role === "HR_ADMIN" || employees.some(employee => employee.id === appraisal.employeeId);
   });
@@ -104,7 +110,7 @@ function bootstrap_(user) {
     departments: readRows_("Departments"),
     jobRoles: readRows_("JobRoles"),
     employees,
-    kpiMaster: user.role === "EMPLOYEE" ? [] : readRows_("KpiMaster"),
+    kpiMaster: visibleKpis,
     templates: readRows_("KpiTemplates").map(parseTemplate_),
     periods: readRows_("AppraisalPeriods").map(parsePeriod_),
     appraisals,
@@ -112,6 +118,12 @@ function bootstrap_(user) {
     guides: [],
     auditLogs: user.role === "HR_ADMIN" ? readRows_("AuditLogs") : []
   };
+}
+
+function kpiMatchesEmployee_(kpi, employee) {
+  const departmentMatch = kpi.department === "All" || kpi.department === employee.department;
+  const roleMatch = kpi.jobRole === "All" || kpi.jobRole === employee.jobTitle;
+  return kpi.status !== "archived" && departmentMatch && roleMatch;
 }
 
 function visibleEmployees_(user) {

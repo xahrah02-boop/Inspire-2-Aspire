@@ -1067,7 +1067,7 @@ function assignedTemplateForEmployee(employee) {
 function employeeAssignedKpiRows(employee, appraisal = null) {
   if (appraisal?.scores?.length) return appraisal.scores;
   const template = assignedTemplateForEmployee(employee);
-  return (template?.items || []).map((item, index) => ({
+  const templateItems = (template?.items || []).map((item, index) => ({
     id: item.id || `template-score-${index + 1}`,
     title: item.title,
     weight: item.weight,
@@ -1076,6 +1076,23 @@ function employeeAssignedKpiRows(employee, appraisal = null) {
     employeeComment: "",
     managerConfirmedEmployeeComment: false
   }));
+  if (templateItems.length) return templateItems;
+  return state.data.kpiMaster.filter(kpi => kpiMatchesEmployee(kpi, employee)).map((kpi, index) => ({
+    id: kpi.id || `kpi-score-${index + 1}`,
+    title: kpi.title,
+    weight: kpi.weight,
+    target: kpi.target || "Meet or exceed approved target",
+    scoringGuide: kpi.scoringGuide || "Use the approved appraisal guide.",
+    employeeComment: "",
+    managerConfirmedEmployeeComment: false
+  }));
+}
+
+function kpiMatchesEmployee(kpi, employee) {
+  if (!kpi || !employee) return false;
+  const departmentMatch = kpi.department === "All" || kpi.department === employee.department;
+  const roleMatch = kpi.jobRole === "All" || kpi.jobRole === employee.jobTitle;
+  return kpi.status !== "archived" && departmentMatch && roleMatch;
 }
 
 function periodName(id) {
