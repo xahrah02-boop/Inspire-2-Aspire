@@ -202,7 +202,7 @@ function renderUsers() {
 }
 
 function renderDepartments() {
-  return `<div class="split">
+  return `<div class="section-stack">
     ${departmentRecordSection()}
     ${jobRoleRecordSection()}
   </div>`;
