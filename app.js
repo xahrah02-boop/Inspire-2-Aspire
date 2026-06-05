@@ -1335,16 +1335,15 @@ function attachHandlers() {
     state.filter = button.dataset.filter;
     renderView();
   }));
-  document.querySelector("[data-create-department]")?.addEventListener("click", () => openModal(departmentCreateModal()));
-  document.querySelector("[data-create-job-role]")?.addEventListener("click", () => openModal(jobRoleCreateModal()));
-  document.querySelector("#departmentForm")?.addEventListener("submit", async event => {
-    event.preventDefault();
-    await api("/api/departments", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
-    state.data = await api("/api/bootstrap");
-    document.querySelector(".modal-backdrop")?.remove();
-    toast("Department added");
-    renderShell();
+  document.querySelector("[data-create-department]")?.addEventListener("click", () => {
+    openModal(departmentCreateModal());
+    bindDepartmentCreateForm();
   });
+  document.querySelector("[data-create-job-role]")?.addEventListener("click", () => {
+    openModal(jobRoleCreateModal());
+    bindJobRoleCreateForm();
+  });
+  bindDepartmentCreateForm();
   document.querySelectorAll("[data-edit-department]").forEach(button => button.addEventListener("click", () => {
     const dept = state.data.departments.find(item => item.id === button.dataset.editDepartment);
     if (dept) openModal(departmentModal(dept));
@@ -1367,14 +1366,7 @@ function attachHandlers() {
       openModal(jobRoleModal(role));
     }
   });
-  document.querySelector("#jobRoleForm")?.addEventListener("submit", async event => {
-    event.preventDefault();
-    await api("/api/job-roles", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
-    state.data = await api("/api/bootstrap");
-    document.querySelector(".modal-backdrop")?.remove();
-    toast("Job role added");
-    renderShell();
-  });
+  bindJobRoleCreateForm();
   document.querySelector("#kpiForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     await api("/api/kpis", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
@@ -1475,6 +1467,42 @@ function bindPeriodCreateForm() {
     document.querySelector(".modal-backdrop")?.remove();
     toast("Appraisal period added");
     renderShell();
+  });
+}
+
+function bindDepartmentCreateForm() {
+  const form = document.querySelector("#departmentForm");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    try {
+      await api("/api/departments", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
+      state.data = await api("/api/bootstrap");
+      document.querySelector(".modal-backdrop")?.remove();
+      toast("Department added");
+      renderShell();
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+}
+
+function bindJobRoleCreateForm() {
+  const form = document.querySelector("#jobRoleForm");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    try {
+      await api("/api/job-roles", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
+      state.data = await api("/api/bootstrap");
+      document.querySelector(".modal-backdrop")?.remove();
+      toast("Job role added");
+      renderShell();
+    } catch (error) {
+      toast(error.message);
+    }
   });
 }
 
