@@ -262,7 +262,10 @@ function renderEmployees() {
 }
 
 function renderPeriods() {
-  return `${periodToolbar()}${canManage() ? `<div class="toolbar page-actions"><button type="button" data-create-period>Add Period</button></div>` : ""}${panel("Appraisal periods", periodTable(filteredPeriods()))}`;
+  return `<div class="section-stack">
+    ${panel("Appraisal period filter", periodToolbar())}
+    ${panel("Appraisal period records", `${canManage() ? `<div class="toolbar page-actions"><button type="button" data-create-period>Add Period</button></div>` : ""}${periodTable(filteredPeriods())}`)}
+  </div>`;
 }
 
 function renderAppraisals() {
