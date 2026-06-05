@@ -555,6 +555,26 @@ function departmentModal(dept) {
   </div>`;
 }
 
+function departmentDetailModal(dept) {
+  return `<div class="modal-backdrop" data-close-modal>
+    <section class="modal" role="dialog" aria-modal="true">
+      <div class="topbar">
+        <div><h2>Department details</h2><div class="hint">${escapeHtml(dept.name)}</div></div>
+        <button class="secondary" data-close-modal type="button">Close</button>
+      </div>
+      <div class="table-wrap"><table><thead><tr>
+        <th>Department name</th><th>Managerial role holder</th><th>Supervisory role holder</th><th>Status</th><th>Action</th>
+      </tr></thead><tbody><tr>
+        <td>${escapeHtml(dept.name)}</td>
+        <td>${escapeHtml(employeeName(dept.managerialRole))}</td>
+        <td>${escapeHtml(employeeName(dept.supervisoryRole))}</td>
+        <td><span class="badge ${escapeHtml(dept.status)}">${escapeHtml(dept.status)}</span></td>
+        <td>${canManage() ? `<button type="button" data-edit-department-detail="${escapeHtml(dept.id)}">Edit</button>` : ""}</td>
+      </tr></tbody></table></div>
+    </section>
+  </div>`;
+}
+
 function jobRoleModal(role) {
   return `<div class="modal-backdrop" data-close-modal>
     <section class="modal narrow-modal" role="dialog" aria-modal="true">
@@ -1333,7 +1353,7 @@ function attachHandlers() {
     const dept = state.data.departments.find(item => item.id === event.target.value);
     if (dept) {
       event.target.value = "";
-      openModal(departmentModal(dept));
+      openModal(departmentDetailModal(dept));
     }
   });
   document.querySelectorAll("[data-edit-role]").forEach(button => button.addEventListener("click", () => {
@@ -1492,6 +1512,12 @@ function openModal(html) {
       document.querySelector(".modal-backdrop")?.remove();
     }
   }));
+  document.querySelector("[data-edit-department-detail]")?.addEventListener("click", event => {
+    const dept = state.data.departments.find(item => item.id === event.currentTarget.dataset.editDepartmentDetail);
+    if (!dept) return;
+    document.querySelector(".modal-backdrop")?.remove();
+    openModal(departmentModal(dept));
+  });
   document.querySelector("#employeeEditForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     const employeeId = event.currentTarget.dataset.employeeId;
