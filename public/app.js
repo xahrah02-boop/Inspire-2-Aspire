@@ -224,7 +224,7 @@ function jobRoleRecordSection() {
       <h2>Job role records</h2>
       ${canManage() ? `<button type="button" data-create-job-role>Add Job Role</button>` : ""}
     </div>
-    ${jobRoleTable()}
+    ${jobRoleDropdown()}
   </section>`;
 }
 
@@ -501,6 +501,20 @@ function jobRoleTable() {
     <td><span class="badge ${escapeHtml(role.status)}">${escapeHtml(role.status)}</span></td>
     <td>${canManage() ? `<button class="secondary small-button" data-edit-role="${role.id}" type="button">Edit</button>` : ""}</td>
   </tr>`).join("")}</tbody></table></div>`;
+}
+
+function jobRoleDropdown() {
+  if (!state.data.jobRoles.length) return "<div class='empty'>No job roles found.</div>";
+  return `<div class="form-grid compact-form record-selector">
+    <div class="field full">
+      <label for="jobRoleMasterSelect">Job role dropdown</label>
+      <select id="jobRoleMasterSelect">
+        <option value="">Select job role</option>
+        ${state.data.jobRoles.map(role => `<option value="${escapeHtml(role.id)}">${escapeHtml(role.title)} - ${escapeHtml(role.department)}</option>`).join("")}
+      </select>
+      <div class="hint">Selecting a job role opens its job role details.</div>
+    </div>
+  </div>`;
 }
 
 function jobRoleForm() {
@@ -1327,6 +1341,13 @@ function attachHandlers() {
     const role = state.data.jobRoles.find(item => item.id === button.dataset.editRole);
     if (role) openModal(jobRoleModal(role));
   }));
+  document.querySelector("#jobRoleMasterSelect")?.addEventListener("change", event => {
+    const role = state.data.jobRoles.find(item => item.id === event.target.value);
+    if (role) {
+      event.target.value = "";
+      openModal(jobRoleModal(role));
+    }
+  });
   document.querySelector("#jobRoleForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     await api("/api/job-roles", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
