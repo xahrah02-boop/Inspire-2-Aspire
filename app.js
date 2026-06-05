@@ -203,9 +203,29 @@ function renderUsers() {
 
 function renderDepartments() {
   return `<div class="split">
-    ${panel("Department master", `${canManage() ? `<div class="toolbar page-actions"><button type="button" data-create-department>Add Department</button></div>` : ""}${departmentTable()}`)}
-    ${panel("Job roles", `${canManage() ? `<div class="toolbar page-actions"><button type="button" data-create-job-role>Add Job Role</button></div>` : ""}${jobRoleTable()}`)}
+    ${departmentRecordSection()}
+    ${jobRoleRecordSection()}
   </div>`;
+}
+
+function departmentRecordSection() {
+  return `<section class="card">
+    <div class="topbar">
+      <h2>Department master records</h2>
+      ${canManage() ? `<button type="button" data-create-department>Add Department</button>` : ""}
+    </div>
+    ${departmentTable()}
+  </section>`;
+}
+
+function jobRoleRecordSection() {
+  return `<section class="card">
+    <div class="topbar">
+      <h2>Job role records</h2>
+      ${canManage() ? `<button type="button" data-create-job-role>Add Job Role</button>` : ""}
+    </div>
+    ${jobRoleTable()}
+  </section>`;
 }
 
 function renderKpis() {
