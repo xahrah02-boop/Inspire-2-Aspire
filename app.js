@@ -479,13 +479,14 @@ function departmentCreateModal() {
 
 function departmentDropdown() {
   if (!state.data.departments.length) return "<div class='empty'>No departments found.</div>";
-  return `<div class="form-grid compact-form">
+  return `<div class="form-grid compact-form record-selector">
     <div class="field full">
-      <label>Department name</label>
+      <label for="departmentMasterSelect">Department name dropdown</label>
       <select id="departmentMasterSelect">
         <option value="">Select department</option>
         ${state.data.departments.map(dept => `<option value="${escapeHtml(dept.id)}">${escapeHtml(dept.name)}</option>`).join("")}
       </select>
+      <div class="hint">Selecting a department opens its department master details.</div>
     </div>
   </div>`;
 }
