@@ -222,9 +222,12 @@ function jobRoleRecordSection() {
   return `<section class="card">
     <div class="topbar">
       <h2>Job role records</h2>
-      ${canManage() ? `<button type="button" data-create-job-role>Add Job Role</button>` : ""}
+      <div class="toolbar">
+        ${jobRoleDropdown()}
+        ${canManage() ? `<button type="button" data-create-job-role>Add Job Role</button>` : ""}
+      </div>
     </div>
-    ${jobRoleDropdown()}
+    <div class="hint">Select a job role from the dropdown to open its details.</div>
   </section>`;
 }
 
@@ -504,16 +507,12 @@ function jobRoleTable() {
 }
 
 function jobRoleDropdown() {
-  if (!state.data.jobRoles.length) return "<div class='empty'>No job roles found.</div>";
-  return `<div class="form-grid compact-form record-selector">
-    <div class="field full">
-      <label for="jobRoleMasterSelect">Job role dropdown</label>
+  return `<div class="field inline-filter record-selector">
+      <label for="jobRoleMasterSelect">Job role</label>
       <select id="jobRoleMasterSelect">
-        <option value="">Select job role</option>
+        <option value="">${state.data.jobRoles.length ? "Select job role" : "No job roles found"}</option>
         ${state.data.jobRoles.map(role => `<option value="${escapeHtml(role.id)}">${escapeHtml(role.title)} - ${escapeHtml(role.department)}</option>`).join("")}
       </select>
-      <div class="hint">Selecting a job role opens its job role details.</div>
-    </div>
   </div>`;
 }
 
