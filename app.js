@@ -262,7 +262,7 @@ function renderEmployees() {
 }
 
 function renderPeriods() {
-  return `${periodToolbar()}${panel("Appraisal periods", periodTable(filteredPeriods()) + (canManage() ? periodForm() : ""))}`;
+  return `${periodToolbar()}${canManage() ? `<div class="toolbar page-actions"><button type="button" data-create-period>Add Period</button></div>` : ""}${panel("Appraisal periods", periodTable(filteredPeriods()))}`;
 }
 
 function renderAppraisals() {
@@ -685,6 +685,18 @@ function periodForm() {
     <div class="field"><label>Status</label><select name="status">${["open", "closed", "locked"].map(status => `<option value="${status}">${status}</option>`).join("")}</select></div>
     <button type="submit">Add period</button>
   </form>`;
+}
+
+function periodCreateModal() {
+  return `<div class="modal-backdrop" data-close-modal>
+    <section class="modal narrow-modal" role="dialog" aria-modal="true">
+      <div class="topbar">
+        <div><h2>Add Period</h2><div class="hint">Create a new appraisal period.</div></div>
+        <button class="secondary" data-close-modal type="button">Close</button>
+      </div>
+      ${periodForm()}
+    </section>
+  </div>`;
 }
 
 function toolbar(placeholder, filters) {
@@ -1307,12 +1319,10 @@ function attachHandlers() {
   }));
   document.querySelector("[data-create-employee]")?.addEventListener("click", () => openModal(employeeCreateModal()));
   bindEmployeeCreateForm();
-  document.querySelector("#periodForm")?.addEventListener("submit", async event => {
-    event.preventDefault();
-    await api("/api/periods", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
-    state.data = await api("/api/bootstrap");
-    toast("Appraisal period added");
-    renderShell();
+  bindPeriodCreateForm();
+  document.querySelector("[data-create-period]")?.addEventListener("click", () => {
+    openModal(periodCreateModal());
+    bindPeriodCreateForm();
   });
   document.querySelectorAll("[data-period],[data-edit-period]").forEach(el => el.addEventListener("click", event => {
     event.stopPropagation();
@@ -1385,6 +1395,17 @@ function attachHandlers() {
     const label = event.currentTarget.closest("td")?.querySelector(".evidence-name");
     if (label) label.textContent = event.currentTarget.files?.[0]?.name || "No file attached";
   }));
+}
+
+function bindPeriodCreateForm() {
+  document.querySelector("#periodForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    await api("/api/periods", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
+    state.data = await api("/api/bootstrap");
+    document.querySelector(".modal-backdrop")?.remove();
+    toast("Appraisal period added");
+    renderShell();
+  });
 }
 
 function bindEmployeeCreateForm() {
