@@ -487,7 +487,7 @@ function departmentDropdown() {
       <label for="departmentMasterSelect">Department name dropdown</label>
       <select id="departmentMasterSelect">
         <option value="">Select department</option>
-        ${state.data.departments.map(dept => `<option value="${escapeHtml(dept.id)}">${escapeHtml(dept.name)}</option>`).join("")}
+        ${state.data.departments.map(dept => `<option value="${escapeHtml(dept.id || dept.name)}">${escapeHtml(dept.name)}</option>`).join("")}
       </select>
       <div class="hint">Selecting a department opens its department master details.</div>
     </div>
@@ -1350,7 +1350,7 @@ function attachHandlers() {
     if (dept) openModal(departmentModal(dept));
   }));
   document.querySelector("#departmentMasterSelect")?.addEventListener("change", event => {
-    const dept = state.data.departments.find(item => item.id === event.target.value);
+    const dept = state.data.departments.find(item => item.id === event.target.value || item.name === event.target.value);
     if (dept) {
       event.target.value = "";
       openModal(departmentDetailModal(dept));
