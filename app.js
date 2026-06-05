@@ -214,7 +214,7 @@ function departmentRecordSection() {
       <h2>Department master records</h2>
       ${canManage() ? `<button type="button" data-create-department>Add Department</button>` : ""}
     </div>
-    ${departmentTable()}
+    ${departmentDropdown()}
   </section>`;
 }
 
@@ -477,17 +477,17 @@ function departmentCreateModal() {
   </div>`;
 }
 
-function departmentTable() {
+function departmentDropdown() {
   if (!state.data.departments.length) return "<div class='empty'>No departments found.</div>";
-  return `<div class="table-wrap"><table><thead><tr>
-    <th>Name</th><th>Managerial role holder</th><th>Supervisory role holder</th><th>Status</th><th>Action</th>
-  </tr></thead><tbody>${state.data.departments.map(dept => `<tr>
-    <td>${escapeHtml(dept.name)}</td>
-    <td>${escapeHtml(employeeName(dept.managerialRole))}</td>
-    <td>${escapeHtml(employeeName(dept.supervisoryRole))}</td>
-    <td><span class="badge ${escapeHtml(dept.status)}">${escapeHtml(dept.status)}</span></td>
-    <td>${canManage() ? `<button class="secondary small-button" data-edit-department="${dept.id}" type="button">Edit</button>` : ""}</td>
-  </tr>`).join("")}</tbody></table></div>`;
+  return `<div class="form-grid compact-form">
+    <div class="field full">
+      <label>Department name</label>
+      <select id="departmentMasterSelect">
+        <option value="">Select department</option>
+        ${state.data.departments.map(dept => `<option value="${escapeHtml(dept.id)}">${escapeHtml(dept.name)}</option>`).join("")}
+      </select>
+    </div>
+  </div>`;
 }
 
 function jobRoleTable() {
@@ -1315,6 +1315,13 @@ function attachHandlers() {
     const dept = state.data.departments.find(item => item.id === button.dataset.editDepartment);
     if (dept) openModal(departmentModal(dept));
   }));
+  document.querySelector("#departmentMasterSelect")?.addEventListener("change", event => {
+    const dept = state.data.departments.find(item => item.id === event.target.value);
+    if (dept) {
+      event.target.value = "";
+      openModal(departmentModal(dept));
+    }
+  });
   document.querySelectorAll("[data-edit-role]").forEach(button => button.addEventListener("click", () => {
     const role = state.data.jobRoles.find(item => item.id === button.dataset.editRole);
     if (role) openModal(jobRoleModal(role));
