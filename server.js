@@ -208,6 +208,16 @@ async function handleApi(req, res, url) {
       return sendJson(res, 201, record);
     }
 
+    if (url.pathname.startsWith("/api/kpis/") && url.pathname.endsWith("/delete") && req.method === "POST") {
+      assertCan(user.role, "manageKpis");
+      const id = url.pathname.split("/").at(-2);
+      const index = data.kpiMaster.findIndex(item => item.id === id);
+      if (index === -1) return sendJson(res, 404, { error: "KPI record not found." });
+      const [record] = data.kpiMaster.splice(index, 1);
+      audit(user, "KPI deleted", "KPI Master", record.code, JSON.stringify(record), "");
+      return sendJson(res, 200, { ok: true, id });
+    }
+
     if (url.pathname.startsWith("/api/kpis/") && req.method === "PATCH") {
       assertCan(user.role, "manageKpis");
       const id = url.pathname.split("/").pop();

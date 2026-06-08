@@ -37,6 +37,7 @@ function handleRequest_(e, method) {
     if (path === "/api/employees" && method === "POST") return json_(createEmployee_(user, body), 201);
     if (path.indexOf("/api/employees/") === 0 && method === "POST") return json_(updateEmployee_(user, path.split("/").pop(), body));
     if (path === "/api/kpis" && method === "POST") return json_(createKpi_(user, body), 201);
+    if (path.indexOf("/api/kpis/") === 0 && path.indexOf("/delete") !== -1 && method === "POST") return json_(deleteKpi_(user, path.split("/")[3]));
     if (path.indexOf("/api/kpis/") === 0 && method === "POST") return json_(updateKpi_(user, path.split("/").pop(), body));
     if (path === "/api/templates" && method === "POST") return json_(createTemplate_(user, body), 201);
     if (path.indexOf("/api/templates/") === 0 && method === "POST") return json_(updateTemplate_(user, path.split("/").pop(), body));
@@ -354,6 +355,14 @@ function updateKpi_(user, id, body) {
   return kpi;
 }
 
+function deleteKpi_(user, id) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const kpi = readById_("KpiMaster", id);
+  deleteRow_("KpiMaster", id);
+  audit_(user, "KPI deleted", "KPI Master", kpi.code, JSON.stringify(kpi), "");
+  return { ok: true, id: id };
+}
+
 function createTemplate_(user, body) {
   requireRole_(user, ["HR_ADMIN"]);
   const items = body.items || [];
@@ -533,6 +542,18 @@ function updateRow_(sheetName, id, obj) {
   for (let r = 1; r < values.length; r++) {
     if (values[r][0] === id) {
       sheet.getRange(r + 1, 1, 1, headers.length).setValues([headers.map(header => obj[header] || "")]);
+      return;
+    }
+  }
+  throw new Error(sheetName + " record not found.");
+}
+
+function deleteRow_(sheetName, id) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const values = sheet.getDataRange().getValues();
+  for (let r = 1; r < values.length; r++) {
+    if (values[r][0] === id) {
+      sheet.deleteRow(r + 1);
       return;
     }
   }

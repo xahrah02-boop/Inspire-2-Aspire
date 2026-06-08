@@ -839,7 +839,7 @@ function kpiFilterToolbar() {
 function kpiTable(rows) {
   if (!rows.length) return "<div class='empty'>No KPI records found.</div>";
   return `<div class="table-wrap"><table><thead><tr>
-    <th>KPI code</th><th>Title</th><th>Category</th><th>Department</th><th>Job role</th><th>Weight</th><th>Frequency</th><th>Status</th>
+    <th>KPI code</th><th>Title</th><th>Category</th><th>Department</th><th>Job role</th><th>Weight</th><th>Frequency</th><th>Status</th>${canManage() ? "<th>Action</th>" : ""}
   </tr></thead><tbody>${rows.map(kpi => `<tr class="${canManage() ? "clickable-row" : ""}" data-kpi="${kpi.id}">
     <td>${escapeHtml(kpi.code)}</td>
     <td><button class="link-button" type="button">${escapeHtml(kpi.title)}</button></td>
@@ -849,6 +849,7 @@ function kpiTable(rows) {
     <td>${escapeHtml(kpi.weight)}</td>
     <td>${escapeHtml(kpi.frequency)}</td>
     <td><span class="badge ${escapeHtml(kpi.status)}">${escapeHtml(kpi.status)}</span></td>
+    ${canManage() ? `<td><button class="danger small-button" type="button" data-delete-kpi="${escapeHtml(kpi.id)}">Delete</button></td>` : ""}
   </tr>`).join("")}</tbody></table></div>`;
 }
 
@@ -1417,6 +1418,23 @@ function attachHandlers() {
     if (!canManage()) return;
     const kpi = state.data.kpiMaster.find(item => item.id === row.dataset.kpi);
     if (kpi) openModal(kpiModal(kpi));
+  }));
+  document.querySelectorAll("[data-delete-kpi]").forEach(button => button.addEventListener("click", async event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const kpi = state.data.kpiMaster.find(item => item.id === button.dataset.deleteKpi);
+    if (!kpi) return;
+    const confirmed = window.confirm(`Delete KPI "${kpi.title}"?`);
+    if (!confirmed) return;
+    try {
+      await api(`/api/kpis/${kpi.id}/delete`, { method: "POST" });
+      state.data = await api("/api/bootstrap");
+      state.data.kpiMaster = state.data.kpiMaster.filter(item => item.id !== kpi.id);
+      toast("KPI deleted");
+      renderShell();
+    } catch (error) {
+      toast(error.message);
+    }
   }));
   document.querySelector("[data-create-employee]")?.addEventListener("click", () => openModal(employeeCreateModal()));
   bindEmployeeCreateForm();
