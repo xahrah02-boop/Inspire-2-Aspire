@@ -1049,7 +1049,8 @@ function kpiForm() {
     ${input("weight", "Weight", "number")}${input("target", "Target")}
     <div class="field"><label>Frequency</label><select name="frequency">${["monthly", "quarterly", "biannual", "annual", "yearly"].map(item => `<option value="${item}">${item}</option>`).join("")}</select></div>
     <div class="field full"><label>Description</label><textarea name="description"></textarea></div>
-    <button type="submit">Create KPI</button>
+    <div class="error full" id="kpiFormError"></div>
+    <button type="submit" data-create-kpi-submit>Create KPI</button>
   </form>`;
 }
 
@@ -1552,19 +1553,35 @@ function bindKpiCreateForm() {
     const roleSelect = form.querySelector("[data-kpi-job-role]");
     if (roleSelect) roleSelect.innerHTML = jobRoleOptionsForDepartment(event.currentTarget.value);
   });
-  form.addEventListener("submit", async event => {
+  form.querySelector("[data-create-kpi-submit]")?.addEventListener("click", event => {
     event.preventDefault();
-    try {
-      const created = await api("/api/kpis", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
-      state.data = await api("/api/bootstrap");
-      mergeCreatedRecord("kpiMaster", created, (item, record) => item.id === record.id || item.code === record.code);
-      document.querySelector(".modal-backdrop")?.remove();
-      toast("KPI created");
-      renderShell();
-    } catch (error) {
-      toast(error.message);
-    }
+    saveKpiCreateForm(form);
   });
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    saveKpiCreateForm(form);
+  });
+}
+
+async function saveKpiCreateForm(form) {
+  const errorEl = form.querySelector("#kpiFormError");
+  const body = Object.fromEntries(new FormData(form));
+  const missing = ["code", "title", "category", "department", "jobRole", "weight", "target", "frequency"].filter(field => !String(body[field] || "").trim());
+  if (missing.length) {
+    if (errorEl) errorEl.textContent = "Please complete all KPI fields, including job role.";
+    return;
+  }
+  try {
+    const created = await api("/api/kpis", { method: "POST", body });
+    state.data = await api("/api/bootstrap");
+    mergeCreatedRecord("kpiMaster", created, (item, record) => item.id === record.id || item.code === record.code);
+    document.querySelector(".modal-backdrop")?.remove();
+    toast("KPI created");
+    renderShell();
+  } catch (error) {
+    if (errorEl) errorEl.textContent = error.message;
+    toast(error.message);
+  }
 }
 
 function bindEmployeeCreateForm() {
