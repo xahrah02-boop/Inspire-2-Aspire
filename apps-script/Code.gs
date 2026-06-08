@@ -489,6 +489,7 @@ function safeJson_(value, fallback) {
 }
 
 function requireRole_(user, roles) {
+  if (user.role === "SUPER_ADMIN" && roles.indexOf("HR_ADMIN") !== -1) return;
   if (roles.indexOf(user.role) === -1) throw new Error("Not allowed.");
 }
 

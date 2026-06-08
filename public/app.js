@@ -43,7 +43,9 @@ async function api(path, options = {}) {
     throw new Error(error.error || "Request failed");
   }
   if (res.status === 204) return null;
-  return res.json();
+  const payload = await res.json();
+  if (payload?.error) throw new Error(payload.error);
+  return payload;
 }
 
 function toast(message) {
