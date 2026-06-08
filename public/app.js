@@ -242,8 +242,7 @@ function renderKpis() {
   const rows = filterKpis(state.data.kpiMaster);
   const page = paginateRowsWithState(rows, state.kpiPage, state.kpiPageSize, "kpiPage");
   return `${kpiFilterToolbar()}
-    ${panel("KPI records", kpiTable(page.rows) + kpiPagination(rows.length, page.totalPages))}
-    ${canManage() ? kpiForm() : ""}`;
+    ${panel("KPI records", `${canManage() ? `<div class="toolbar page-actions"><button type="button" data-create-kpi>Add KPI</button></div>` : ""}${kpiTable(page.rows)}${kpiPagination(rows.length, page.totalPages)}`)}`;
 }
 
 function renderEmployeeKpis() {
@@ -1028,16 +1027,29 @@ function table(rows, fields, badgeFields) {
 }
 
 function kpiForm() {
-  return `<section class="card" style="margin-top:14px"><h2>Add KPI</h2><form id="kpiForm" class="form-grid">
+  const selectedDepartment = state.data.departments[0]?.name || "";
+  return `<form id="kpiForm" class="form-grid">
     ${input("code", "KPI code")}${input("title", "KPI title")}
     <div class="field"><label>KPI category</label><select name="category">${kpiCategories().map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("")}</select></div>
-    <div class="field"><label>Department</label><select name="department">${departmentOptions()}</select></div>
-    <div class="field"><label>Job role</label><select name="jobRole">${jobRoleOptions()}</select></div>
+    <div class="field"><label>Department</label><select name="department" data-kpi-department>${departmentOptions()}</select></div>
+    <div class="field"><label>Job role</label><select name="jobRole" data-kpi-job-role>${jobRoleOptionsForDepartment(selectedDepartment)}</select></div>
     ${input("weight", "Weight", "number")}${input("target", "Target")}
     <div class="field"><label>Frequency</label><select name="frequency">${["monthly", "quarterly", "biannual", "annual", "yearly"].map(item => `<option value="${item}">${item}</option>`).join("")}</select></div>
     <div class="field full"><label>Description</label><textarea name="description"></textarea></div>
     <button type="submit">Create KPI</button>
-  </form></section>`;
+  </form>`;
+}
+
+function kpiCreateModal() {
+  return `<div class="modal-backdrop" data-close-modal>
+    <section class="modal" role="dialog" aria-modal="true">
+      <div class="topbar">
+        <div><h2>Add KPI</h2><div class="hint">Create KPI records by department and job role.</div></div>
+        <button class="secondary" data-close-modal type="button">Close</button>
+      </div>
+      ${kpiForm()}
+    </section>
+  </div>`;
 }
 
 function templateForm() {
@@ -1132,6 +1144,12 @@ function departmentOptions() {
 
 function jobRoleOptions() {
   return state.data.jobRoles.map(role => `<option value="${escapeHtml(role.title)}">${escapeHtml(role.title)}</option>`).join("");
+}
+
+function jobRoleOptionsForDepartment(department, selected = "") {
+  const roles = state.data.jobRoles.filter(role => role.department === department);
+  if (!roles.length) return `<option value="">No job roles for selected department</option>`;
+  return roles.map(role => `<option value="${escapeHtml(role.title)}" ${selected === role.title ? "selected" : ""}>${escapeHtml(role.title)}</option>`).join("");
 }
 
 function kpiCategories() {
@@ -1320,6 +1338,10 @@ function attachHandlers() {
     state.kpiPage = 1;
     renderView();
   });
+  document.querySelector("[data-create-kpi]")?.addEventListener("click", () => {
+    openModal(kpiCreateModal());
+    bindKpiCreateForm();
+  });
   document.querySelector("#templatePicker")?.addEventListener("change", event => {
     state.selectedTemplateId = event.target.value;
     renderView();
@@ -1373,13 +1395,7 @@ function attachHandlers() {
     }
   });
   bindJobRoleCreateForm();
-  document.querySelector("#kpiForm")?.addEventListener("submit", async event => {
-    event.preventDefault();
-    await api("/api/kpis", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
-    state.data = await api("/api/bootstrap");
-    toast("KPI created");
-    renderShell();
-  });
+  bindKpiCreateForm();
   document.querySelectorAll("[data-kpi]").forEach(row => row.addEventListener("click", () => {
     if (!canManage()) return;
     const kpi = state.data.kpiMaster.find(item => item.id === row.dataset.kpi);
@@ -1507,6 +1523,29 @@ function bindJobRoleCreateForm() {
       mergeCreatedRecord("jobRoles", created, (item, record) => item.id === record.id || (item.title === record.title && item.department === record.department));
       document.querySelector(".modal-backdrop")?.remove();
       toast("Job role added");
+      renderShell();
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+}
+
+function bindKpiCreateForm() {
+  const form = document.querySelector("#kpiForm");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+  form.querySelector("[data-kpi-department]")?.addEventListener("change", event => {
+    const roleSelect = form.querySelector("[data-kpi-job-role]");
+    if (roleSelect) roleSelect.innerHTML = jobRoleOptionsForDepartment(event.currentTarget.value);
+  });
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    try {
+      const created = await api("/api/kpis", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
+      state.data = await api("/api/bootstrap");
+      mergeCreatedRecord("kpiMaster", created, (item, record) => item.id === record.id || item.code === record.code);
+      document.querySelector(".modal-backdrop")?.remove();
+      toast("KPI created");
       renderShell();
     } catch (error) {
       toast(error.message);
