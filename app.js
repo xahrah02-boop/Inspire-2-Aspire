@@ -57,6 +57,12 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[m]));
 }
 
+function mergeCreatedRecord(collection, record, matcher) {
+  if (!state.data?.[collection] || !record) return;
+  const exists = state.data[collection].some(item => matcher(item, record));
+  if (!exists) state.data[collection] = [record, ...state.data[collection]];
+}
+
 async function init() {
   if (window.FORGE_HR_CONFIG?.apiBaseUrl && !localStorage.getItem("forgeHrToken")) {
     renderLogin();
@@ -1477,8 +1483,9 @@ function bindDepartmentCreateForm() {
   form.addEventListener("submit", async event => {
     event.preventDefault();
     try {
-      await api("/api/departments", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
+      const created = await api("/api/departments", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
       state.data = await api("/api/bootstrap");
+      mergeCreatedRecord("departments", created, (item, record) => item.id === record.id || item.name === record.name);
       document.querySelector(".modal-backdrop")?.remove();
       toast("Department added");
       renderShell();
@@ -1495,8 +1502,9 @@ function bindJobRoleCreateForm() {
   form.addEventListener("submit", async event => {
     event.preventDefault();
     try {
-      await api("/api/job-roles", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
+      const created = await api("/api/job-roles", { method: "POST", body: Object.fromEntries(new FormData(event.currentTarget)) });
       state.data = await api("/api/bootstrap");
+      mergeCreatedRecord("jobRoles", created, (item, record) => item.id === record.id || (item.title === record.title && item.department === record.department));
       document.querySelector(".modal-backdrop")?.remove();
       toast("Job role added");
       renderShell();
