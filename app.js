@@ -257,7 +257,7 @@ function renderKpis() {
   const rows = filterKpis(state.data.kpiMaster);
   const page = paginateRowsWithState(rows, state.kpiPage, state.kpiPageSize, "kpiPage");
   return `${kpiFilterToolbar()}
-    ${panel("KPI records", `${canManage() ? `<div class="toolbar page-actions"><button type="button" data-create-kpi>Add KPI</button></div>` : ""}${kpiTable(page.rows)}${kpiPagination(rows.length, page.totalPages)}`)}`;
+    ${panel("KPI records", `${canManage() ? kpiRecordActions(rows) : ""}${kpiTable(page.rows)}${kpiPagination(rows.length, page.totalPages)}`)}`;
 }
 
 function renderEmployeeKpis() {
@@ -853,6 +853,20 @@ function kpiTable(rows) {
   </tr>`).join("")}</tbody></table></div>`;
 }
 
+function kpiRecordActions(rows) {
+  return `<div class="toolbar page-actions">
+    <button type="button" data-create-kpi>Add KPI</button>
+    <div class="field inline-filter">
+      <label>Delete duplicate KPI</label>
+      <select id="deleteKpiSelect">
+        <option value="">Select KPI to delete</option>
+        ${rows.map(kpi => `<option value="${escapeHtml(kpi.id)}">${escapeHtml(kpi.code)} - ${escapeHtml(kpi.title)} (${escapeHtml(kpi.department)} / ${escapeHtml(kpi.jobRole)})</option>`).join("")}
+      </select>
+    </div>
+    <button class="danger" type="button" data-delete-selected-kpi>Delete Selected KPI</button>
+  </div>`;
+}
+
 function kpiPagination(total, totalPages) {
   if (!total) return "";
   const start = (state.kpiPage - 1) * state.kpiPageSize + 1;
@@ -1422,20 +1436,17 @@ function attachHandlers() {
   document.querySelectorAll("[data-delete-kpi]").forEach(button => button.addEventListener("click", async event => {
     event.preventDefault();
     event.stopPropagation();
-    const kpi = state.data.kpiMaster.find(item => item.id === button.dataset.deleteKpi);
-    if (!kpi) return;
-    const confirmed = window.confirm(`Delete KPI "${kpi.title}"?`);
-    if (!confirmed) return;
-    try {
-      await api(`/api/kpis/${kpi.id}/delete`, { method: "POST" });
-      state.data = await api("/api/bootstrap");
-      state.data.kpiMaster = state.data.kpiMaster.filter(item => item.id !== kpi.id);
-      toast("KPI deleted");
-      renderShell();
-    } catch (error) {
-      toast(error.message);
-    }
+    deleteKpiRecord(button.dataset.deleteKpi);
   }));
+  document.querySelector("[data-delete-selected-kpi]")?.addEventListener("click", event => {
+    event.preventDefault();
+    const kpiId = document.querySelector("#deleteKpiSelect")?.value;
+    if (!kpiId) {
+      toast("Select a KPI to delete");
+      return;
+    }
+    deleteKpiRecord(kpiId);
+  });
   document.querySelector("[data-create-employee]")?.addEventListener("click", () => openModal(employeeCreateModal()));
   bindEmployeeCreateForm();
   bindPeriodCreateForm();
@@ -1600,6 +1611,25 @@ async function saveKpiCreateForm(form) {
     renderShell();
   } catch (error) {
     if (errorEl) errorEl.textContent = error.message;
+    toast(error.message);
+  }
+}
+
+async function deleteKpiRecord(kpiId) {
+  const kpi = state.data.kpiMaster.find(item => item.id === kpiId);
+  if (!kpi) {
+    toast("KPI record not found");
+    return;
+  }
+  const confirmed = window.confirm(`Delete KPI "${kpi.title}"?`);
+  if (!confirmed) return;
+  try {
+    await api(`/api/kpis/${kpi.id}`, { method: "PATCH", body: { action: "delete" } });
+    state.data = await api("/api/bootstrap");
+    state.data.kpiMaster = state.data.kpiMaster.filter(item => item.id !== kpi.id);
+    toast("KPI deleted");
+    renderShell();
+  } catch (error) {
     toast(error.message);
   }
 }

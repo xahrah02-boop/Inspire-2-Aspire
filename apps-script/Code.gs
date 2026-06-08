@@ -38,6 +38,7 @@ function handleRequest_(e, method) {
     if (path.indexOf("/api/employees/") === 0 && method === "POST") return json_(updateEmployee_(user, path.split("/").pop(), body));
     if (path === "/api/kpis" && method === "POST") return json_(createKpi_(user, body), 201);
     if (path.indexOf("/api/kpis/") === 0 && path.indexOf("/delete") !== -1 && method === "POST") return json_(deleteKpi_(user, path.split("/")[3]));
+    if (path.indexOf("/api/kpis/") === 0 && body.action === "delete" && method === "POST") return json_(deleteKpi_(user, path.split("/").pop()));
     if (path.indexOf("/api/kpis/") === 0 && method === "POST") return json_(updateKpi_(user, path.split("/").pop(), body));
     if (path === "/api/templates" && method === "POST") return json_(createTemplate_(user, body), 201);
     if (path.indexOf("/api/templates/") === 0 && method === "POST") return json_(updateTemplate_(user, path.split("/").pop(), body));

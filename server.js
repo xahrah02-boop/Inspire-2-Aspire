@@ -222,6 +222,13 @@ async function handleApi(req, res, url) {
       assertCan(user.role, "manageKpis");
       const id = url.pathname.split("/").pop();
       const body = await readBody(req);
+      if (body.action === "delete") {
+        const index = data.kpiMaster.findIndex(item => item.id === id);
+        if (index === -1) return sendJson(res, 404, { error: "KPI record not found." });
+        const [deleted] = data.kpiMaster.splice(index, 1);
+        audit(user, "KPI deleted", "KPI Master", deleted.code, JSON.stringify(deleted), "");
+        return sendJson(res, 200, { ok: true, id });
+      }
       const record = data.kpiMaster.find(item => item.id === id);
       if (!record) return sendJson(res, 404, { error: "KPI record not found." });
       const oldValue = JSON.stringify(record);
