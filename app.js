@@ -1,6 +1,7 @@
 const app = document.querySelector("#app");
 let state = { user: null, data: null, view: "dashboard", query: "", filter: "all", periodFilter: "all", employeeNameFilter: "", employeeDepartmentFilter: "all", employeeRoleFilter: "all", employeePage: 1, employeePageSize: 5, kpiStatusFilter: "all", kpiDepartmentFilter: "all", kpiRoleFilter: "all", kpiFrequencyFilter: "all", kpiPage: 1, kpiPageSize: 5, selectedTemplateId: "" };
 let searchTimer;
+let globalHandlersBound = false;
 
 const roleMenus = {
   SUPER_ADMIN: ["dashboard", "users", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
@@ -63,7 +64,19 @@ function mergeCreatedRecord(collection, record, matcher) {
   if (!exists) state.data[collection] = [record, ...state.data[collection]];
 }
 
+function bindGlobalHandlers() {
+  if (globalHandlersBound) return;
+  globalHandlersBound = true;
+  document.addEventListener("click", event => {
+    const createKpiButton = event.target.closest?.("[data-create-kpi]");
+    if (!createKpiButton) return;
+    event.preventDefault();
+    openModal(kpiCreateModal());
+  });
+}
+
 async function init() {
+  bindGlobalHandlers();
   if (window.FORGE_HR_CONFIG?.apiBaseUrl && !localStorage.getItem("forgeHrToken")) {
     renderLogin();
     return;
@@ -1338,7 +1351,8 @@ function attachHandlers() {
     state.kpiPage = 1;
     renderView();
   });
-  document.querySelector("[data-create-kpi]")?.addEventListener("click", () => {
+  document.querySelector("[data-create-kpi]")?.addEventListener("click", event => {
+    event.stopPropagation();
     openModal(kpiCreateModal());
     bindKpiCreateForm();
   });
@@ -1587,6 +1601,7 @@ function openModal(html) {
       document.querySelector(".modal-backdrop")?.remove();
     }
   }));
+  bindKpiCreateForm();
   document.querySelector("[data-edit-department-detail]")?.addEventListener("click", event => {
     const dept = state.data.departments.find(item => item.id === event.currentTarget.dataset.editDepartmentDetail);
     if (!dept) return;
