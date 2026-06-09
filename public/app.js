@@ -6,7 +6,7 @@ let globalHandlersBound = false;
 const roleMenus = {
   SUPER_ADMIN: ["dashboard", "users", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
   HR_ADMIN: ["dashboard", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
-  LINE_MANAGER: ["dashboard", "profile", "employees", "appraisals", "help"],
+  LINE_MANAGER: ["dashboard", "profile", "employees", "appraisals", "results", "help"],
   EMPLOYEE: ["profile", "kpis", "results", "help"]
 };
 
@@ -240,7 +240,7 @@ function renderManagerDashboard() {
 }
 
 function managerReviewRows() {
-  return state.data.appraisals
+  return managerAssignedAppraisals()
     .filter(appraisal => appraisal.employee)
     .map(appraisal => {
       const comments = appraisal.scores.filter(score => score.employeeComment);
@@ -372,7 +372,7 @@ function renderPeriods() {
 }
 
 function renderAppraisals() {
-  const rows = filteredAppraisals();
+  const rows = state.user.role === "LINE_MANAGER" ? filteredManagerAppraisals() : filteredAppraisals();
   if (!rows.length) return "<div class='empty'>No appraisal assigned yet.</div>";
   if (state.user.role === "LINE_MANAGER") return renderManagerAppraisalResults(rows);
   return `${periodToolbar()}<div class="appraisal-list">${rows.map(appraisalLine).join("")}</div>`;
@@ -879,6 +879,49 @@ function filteredPeriods() {
 
 function filteredAppraisals() {
   return state.periodFilter === "all" ? state.data.appraisals : state.data.appraisals.filter(appraisal => appraisal.periodId === state.periodFilter);
+}
+
+function filteredManagerAppraisals() {
+  const rows = managerAssignedAppraisals();
+  return state.periodFilter === "all" ? rows : rows.filter(appraisal => appraisal.periodId === state.periodFilter);
+}
+
+function managerAssignedAppraisals() {
+  if (state.user.role !== "LINE_MANAGER") return state.data.appraisals;
+  const periodId = state.data.periods.find(period => period.status === "open")?.id || state.data.periods[0]?.id || "";
+  const rows = [];
+  for (const employee of state.data.employees.filter(employee => employee.userId !== state.user.id)) {
+    const existing = state.data.appraisals.find(appraisal => appraisal.employeeId === employee.id || appraisal.employee?.id === employee.id);
+    if (existing) {
+      rows.push({ ...existing, employee: existing.employee || employee });
+      continue;
+    }
+    const scores = employeeAssignedKpiRows(employee).map((score, index) => ({
+      id: score.id || `queue-${employee.id}-score-${index + 1}`,
+      title: score.title,
+      weight: score.weight,
+      target: score.target || "Meet or exceed approved target",
+      score: score.score || 18,
+      actualResult: score.actualResult || "",
+      managerComment: score.managerComment || "",
+      evidenceNote: score.evidenceNote || "",
+      evidenceFileName: score.evidenceFileName || "",
+      employeeComment: score.employeeComment || "",
+      managerConfirmedEmployeeComment: Boolean(score.managerConfirmedEmployeeComment)
+    }));
+    rows.push({
+      id: `queue-${employee.id}-${periodId}`,
+      employeeId: employee.id,
+      employee,
+      periodId,
+      managerUserId: employee.lineManagerUserId,
+      status: "Not Started",
+      scores,
+      finalScore: 0,
+      rating: "Not rated"
+    });
+  }
+  return rows;
 }
 
 function periodForm() {
