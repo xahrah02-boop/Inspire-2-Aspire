@@ -374,7 +374,43 @@ function renderPeriods() {
 function renderAppraisals() {
   const rows = filteredAppraisals();
   if (!rows.length) return "<div class='empty'>No appraisal assigned yet.</div>";
+  if (state.user.role === "LINE_MANAGER") return renderManagerAppraisalResults(rows);
   return `${periodToolbar()}<div class="appraisal-list">${rows.map(appraisalLine).join("")}</div>`;
+}
+
+function renderManagerAppraisalResults(rows) {
+  return `${periodToolbar()}<div class="appraisal-list">${rows.map(managerAppraisalResultLine).join("")}</div>`;
+}
+
+function managerAppraisalResultLine(appraisal) {
+  const employeeName = appraisal.employee ? `${appraisal.employee.firstName} ${appraisal.employee.lastName}` : "Employee";
+  return `<article class="appraisal-row">
+    <button class="appraisal-summary" data-toggle-manager-kpis="${escapeHtml(appraisal.id)}">
+      <span><strong>${escapeHtml(employeeName)}</strong></span>
+      <span>${escapeHtml(appraisal.employee?.department || "")}</span>
+      <span>${escapeHtml(appraisal.employee?.jobTitle || "")}</span>
+      <span><span class="badge ${escapeHtml(appraisal.status)}">${escapeHtml(appraisal.status)}</span></span>
+    </button>
+    <div class="appraisal-detail" id="manager-kpis-${escapeHtml(appraisal.id)}" hidden>
+      ${managerAssignedKpiTable(appraisal)}
+    </div>
+  </article>`;
+}
+
+function managerAssignedKpiTable(appraisal) {
+  if (!appraisal.scores?.length) return "<div class='empty'>No KPI assigned to this staff member yet.</div>";
+  return `<div class="toolbar" style="margin:10px 0"><button type="button" data-open-manager-review="${escapeHtml(appraisal.id)}">Open KPI Review</button></div>
+    <div class="table-wrap"><table><thead><tr>
+      <th>KPI</th><th>Weight</th><th>Target</th><th>Employee comment</th><th>Manager score</th><th>Supporting document</th><th>Status</th>
+    </tr></thead><tbody>${appraisal.scores.map(score => `<tr>
+      <td><strong>${escapeHtml(score.title)}</strong></td>
+      <td>${escapeHtml(score.weight)}%</td>
+      <td>${escapeHtml(score.target || "")}</td>
+      <td>${escapeHtml(score.employeeComment || "No employee comment yet")}</td>
+      <td>${escapeHtml(score.score || "")}</td>
+      <td>${escapeHtml(score.evidenceFileName || score.evidenceNote || "No file attached")}</td>
+      <td><span class="badge ${score.managerConfirmedEmployeeComment ? "active" : "Draft"}">${score.managerConfirmedEmployeeComment ? "Comment confirmed" : "Pending review"}</span></td>
+    </tr>`).join("")}</tbody></table></div>`;
 }
 
 function appraisalCard(appraisal) {
@@ -1626,6 +1662,10 @@ function attachHandlers() {
   }));
   document.querySelectorAll("[data-toggle-appraisal]").forEach(button => button.addEventListener("click", () => {
     const detail = document.querySelector(`#detail-${CSS.escape(button.dataset.toggleAppraisal)}`);
+    if (detail) detail.hidden = !detail.hidden;
+  }));
+  document.querySelectorAll("[data-toggle-manager-kpis]").forEach(button => button.addEventListener("click", () => {
+    const detail = document.querySelector(`#manager-kpis-${CSS.escape(button.dataset.toggleManagerKpis)}`);
     if (detail) detail.hidden = !detail.hidden;
   }));
   document.querySelectorAll("[data-open-appraisal]").forEach(button => button.addEventListener("click", () => {
