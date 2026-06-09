@@ -367,6 +367,61 @@ th {
   margin: 14px 0;
   box-shadow: none;
 }
+.demo-video-card {
+  display: grid;
+  grid-template-columns: minmax(240px, 420px) 1fr;
+  gap: 18px;
+  align-items: center;
+}
+.demo-video-thumb, .onboarding-video-player {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #101820;
+  overflow: hidden;
+}
+.demo-video-screen, .video-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  min-height: 220px;
+}
+.demo-video-slide, .video-scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 28px;
+  color: white;
+  opacity: 0;
+  animation: demoScene 16s infinite;
+}
+.demo-video-slide strong, .video-scene strong {
+  font-size: 28px;
+}
+.demo-video-slide span, .video-scene span {
+  color: rgba(255,255,255,.82);
+}
+.slide-one, .scene-one { background: linear-gradient(135deg, #1f6f5b, #315f9f); animation-delay: 0s; }
+.slide-two, .scene-two { background: linear-gradient(135deg, #315f9f, #5a6b3d); animation-delay: 4s; }
+.slide-three, .scene-three { background: linear-gradient(135deg, #155645, #a86a13); animation-delay: 8s; }
+.slide-four, .scene-four { background: linear-gradient(135deg, #18202a, #1f6f5b); animation-delay: 12s; }
+.video-controls {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 10px;
+  background: #18202a;
+}
+.video-controls span {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.28);
+  overflow: hidden;
+}
+@keyframes demoScene {
+  0%, 22% { opacity: 1; transform: scale(1); }
+  25%, 100% { opacity: 0; transform: scale(1.025); }
+}
 .appraisal-list {
   display: grid;
   gap: 10px;
@@ -451,6 +506,7 @@ th {
   .login-art { min-height: 220px; }
   .sidebar { position: static; }
   .cards { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+  .demo-video-card { grid-template-columns: 1fr; }
   .modal-cards, .appraisal-summary { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 620px) {

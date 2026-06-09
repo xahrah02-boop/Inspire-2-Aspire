@@ -574,7 +574,40 @@ function trainingReportModal() {
 
 function renderHelp() {
   const checklist = ["Complete profile review", "Read KPI explanation", "View assigned KPIs", "Confirm understanding of performance expectations", "Read company appraisal policy", "Acknowledge onboarding completion"];
-  return `<div class="split">${panel("How to use this system", state.data.guides.map(g => `<div class="card" style="margin-bottom:10px"><h3>${escapeHtml(g.title)}</h3><div class="hint">${escapeHtml(g.audience)}</div><p>${escapeHtml(g.body)}</p></div>`).join(""))}${panel("New employee onboarding checklist", checklist.map((item, i) => `<label class="field"><span><input type="checkbox"> ${i + 1}. ${escapeHtml(item)}</span></label>`).join("") + `<h3>FAQ</h3><p class="hint">KPI weights show how much each measure contributes to the final score. A published result can be acknowledged from Appraisal Results.</p>`)}</div>`;
+  return `<div class="section-stack">
+    ${panel("Onboarding demo video", `<div class="demo-video-card">
+      <div class="demo-video-thumb">
+        <div class="demo-video-screen">
+          <div class="demo-video-slide slide-one"><strong>HR assigns KPIs</strong><span>KPI Master · Templates · Employees</span></div>
+          <div class="demo-video-slide slide-two"><strong>Employee comments</strong><span>My Assigned KPI · Save comments</span></div>
+          <div class="demo-video-slide slide-three"><strong>Manager reviews</strong><span>Score · Attach document · Submit</span></div>
+          <div class="demo-video-slide slide-four"><strong>HR approves</strong><span>Review · Publish · Acknowledge</span></div>
+        </div>
+      </div>
+      <div><h3>ForgeHR appraisal walkthrough</h3><p class="hint">A quick visual guide for HR, managers, and employees.</p><button type="button" data-onboarding-video>Watch Demo Video</button></div>
+    </div>`)}
+    <div class="split">${panel("How to use this system", state.data.guides.map(g => `<div class="card" style="margin-bottom:10px"><h3>${escapeHtml(g.title)}</h3><div class="hint">${escapeHtml(g.audience)}</div><p>${escapeHtml(g.body)}</p></div>`).join(""))}${panel("New employee onboarding checklist", checklist.map((item, i) => `<label class="field"><span><input type="checkbox"> ${i + 1}. ${escapeHtml(item)}</span></label>`).join("") + `<h3>FAQ</h3><p class="hint">KPI weights show how much each measure contributes to the final score. A published result can be acknowledged from Appraisal Results.</p>`)}</div>
+  </div>`;
+}
+
+function onboardingVideoModal() {
+  return `<div class="modal-backdrop" data-close-modal>
+    <section class="modal" role="dialog" aria-modal="true">
+      <div class="topbar">
+        <div><h2>Onboarding Demo Video</h2><div class="hint">ForgeHR appraisal workflow walkthrough.</div></div>
+        <button class="secondary" data-close-modal type="button">Close</button>
+      </div>
+      <div class="onboarding-video-player">
+        <div class="video-stage">
+          <div class="video-scene scene-one"><strong>1. HR setup</strong><span>Create departments, job roles, KPI master records, and templates.</span></div>
+          <div class="video-scene scene-two"><strong>2. Employee input</strong><span>Employees open My Assigned KPI and save comments on each KPI.</span></div>
+          <div class="video-scene scene-three"><strong>3. Manager review</strong><span>Managers review comments, attach supporting documents, and score each KPI.</span></div>
+          <div class="video-scene scene-four"><strong>4. HR final review</strong><span>HR approves, publishes results, and employees acknowledge outcomes.</span></div>
+        </div>
+        <div class="video-controls"><span></span><span></span><span></span><span></span></div>
+      </div>
+    </section>
+  </div>`;
 }
 
 function renderAudit() {
@@ -1563,6 +1596,9 @@ function attachHandlers() {
   });
   document.querySelector("[data-department-report]")?.addEventListener("click", () => {
     openModal(departmentReportModal());
+  });
+  document.querySelector("[data-onboarding-video]")?.addEventListener("click", () => {
+    openModal(onboardingVideoModal());
   });
   document.querySelectorAll("[data-filter]").forEach(button => button.addEventListener("click", () => {
     state.filter = button.dataset.filter;
