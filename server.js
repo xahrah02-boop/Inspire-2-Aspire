@@ -265,6 +265,13 @@ async function handleApi(req, res, url) {
       assertCan(user.role, "manageEmployees");
       const id = url.pathname.split("/").pop();
       const body = await readBody(req);
+      if (body.action === "delete") {
+        const index = data.departments.findIndex(item => item.id === id || item.name === id);
+        if (index === -1) return sendJson(res, 404, { error: "Department not found." });
+        const [department] = data.departments.splice(index, 1);
+        audit(user, "Department deleted", "Department Master", department.name, JSON.stringify(department), "");
+        return sendJson(res, 200, { ok: true, id: department.id });
+      }
       const department = data.departments.find(item => item.id === id);
       if (!department) return sendJson(res, 404, { error: "Department not found." });
       const oldName = department.name;

@@ -236,6 +236,8 @@ function departmentRecordSection() {
       ${canManage() ? `<button type="button" data-create-department>Add Department</button>` : ""}
     </div>
     ${departmentDropdown()}
+    ${canManage() ? departmentDeleteActions() : ""}
+    ${departmentTable()}
   </section>`;
 }
 
@@ -512,6 +514,33 @@ function departmentDropdown() {
       <div class="hint">Selecting a department opens its department master details.</div>
     </div>
   </div>`;
+}
+
+function departmentDeleteActions() {
+  if (!state.data.departments.length) return "";
+  return `<div class="toolbar page-actions">
+    <div class="field inline-filter">
+      <label>Delete duplicate department</label>
+      <select id="deleteDepartmentSelect">
+        <option value="">Select department to delete</option>
+        ${state.data.departments.map(dept => `<option value="${escapeHtml(dept.id || dept.name)}">${escapeHtml(dept.name)} (${escapeHtml(dept.status || "active")})</option>`).join("")}
+      </select>
+    </div>
+    <button class="danger" type="button" data-delete-selected-department>Delete Selected Department</button>
+  </div>`;
+}
+
+function departmentTable() {
+  if (!state.data.departments.length) return "";
+  return `<div class="table-wrap"><table><thead><tr>
+    <th>Department name</th><th>Managerial role holder</th><th>Supervisory role holder</th><th>Status</th>${canManage() ? "<th>Action</th>" : ""}
+  </tr></thead><tbody>${state.data.departments.map(dept => `<tr>
+    <td>${escapeHtml(dept.name)}</td>
+    <td>${escapeHtml(employeeName(dept.managerialRole))}</td>
+    <td>${escapeHtml(employeeName(dept.supervisoryRole))}</td>
+    <td><span class="badge ${escapeHtml(dept.status || "active")}">${escapeHtml(dept.status || "active")}</span></td>
+    ${canManage() ? `<td><button class="secondary small-button" type="button" data-edit-department="${escapeHtml(dept.id)}">Edit</button><button class="danger small-button" type="button" data-delete-department="${escapeHtml(dept.id || dept.name)}">Delete</button></td>` : ""}
+  </tr>`).join("")}</tbody></table></div>`;
 }
 
 function jobRoleTable() {
@@ -1408,6 +1437,20 @@ function attachHandlers() {
     const dept = state.data.departments.find(item => item.id === button.dataset.editDepartment);
     if (dept) openModal(departmentModal(dept));
   }));
+  document.querySelectorAll("[data-delete-department]").forEach(button => button.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    deleteDepartmentRecord(button.dataset.deleteDepartment);
+  }));
+  document.querySelector("[data-delete-selected-department]")?.addEventListener("click", event => {
+    event.preventDefault();
+    const departmentId = document.querySelector("#deleteDepartmentSelect")?.value;
+    if (!departmentId) {
+      toast("Select a department to delete");
+      return;
+    }
+    deleteDepartmentRecord(departmentId);
+  });
   document.querySelector("#departmentMasterSelect")?.addEventListener("change", event => {
     const dept = state.data.departments.find(item => item.id === event.target.value || item.name === event.target.value);
     if (dept) {
@@ -1628,6 +1671,25 @@ async function deleteKpiRecord(kpiId) {
     state.data = await api("/api/bootstrap");
     state.data.kpiMaster = state.data.kpiMaster.filter(item => item.id !== kpi.id);
     toast("KPI deleted");
+    renderShell();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function deleteDepartmentRecord(departmentId) {
+  const department = state.data.departments.find(item => item.id === departmentId || item.name === departmentId);
+  if (!department) {
+    toast("Department record not found");
+    return;
+  }
+  const confirmed = window.confirm(`Delete department "${department.name}"?`);
+  if (!confirmed) return;
+  try {
+    await api(`/api/departments/${department.id || department.name}`, { method: "PATCH", body: { action: "delete" } });
+    state.data = await api("/api/bootstrap");
+    state.data.departments = state.data.departments.filter(item => (item.id || item.name) !== (department.id || department.name));
+    toast("Department deleted");
     renderShell();
   } catch (error) {
     toast(error.message);

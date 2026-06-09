@@ -31,6 +31,7 @@ function handleRequest_(e, method) {
     if (path === "/api/me") return json_({ user: publicUser_(user), dashboard: dashboardFor_(user), notifications: [] });
     if (path === "/api/bootstrap") return json_(bootstrap_(user));
     if (path === "/api/departments" && method === "POST") return json_(createDepartment_(user, body), 201);
+    if (path.indexOf("/api/departments/") === 0 && body.action === "delete" && method === "POST") return json_(deleteDepartment_(user, path.split("/").pop()));
     if (path.indexOf("/api/departments/") === 0 && method === "POST") return json_(updateDepartment_(user, path.split("/").pop(), body));
     if (path === "/api/job-roles" && method === "POST") return json_(createJobRole_(user, body), 201);
     if (path.indexOf("/api/job-roles/") === 0 && method === "POST") return json_(updateJobRole_(user, path.split("/").pop(), body));
@@ -227,6 +228,14 @@ function updateDepartment_(user, id, body) {
   if (oldName !== department.name) renameDepartmentReferences_(oldName, department.name);
   audit_(user, "Department updated", "Department Master", department.name, oldValue, JSON.stringify(department));
   return department;
+}
+
+function deleteDepartment_(user, id) {
+  requireRole_(user, ["HR_ADMIN"]);
+  const department = readById_("Departments", id);
+  deleteRow_("Departments", id);
+  audit_(user, "Department deleted", "Department Master", department.name, JSON.stringify(department), "");
+  return { ok: true, id: id };
 }
 
 function createJobRole_(user, body) {
