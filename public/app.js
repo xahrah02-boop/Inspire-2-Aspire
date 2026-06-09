@@ -66,6 +66,26 @@ function mergeCreatedRecord(collection, record, matcher) {
   if (!exists) state.data[collection] = [record, ...state.data[collection]];
 }
 
+function normalizeCreatedEmployee(employee, fallback = {}) {
+  if (!employee) return employee;
+  return {
+    id: employee.id || `emp-${Date.now()}`,
+    employeeId: employee.employeeId || fallback.employeeId || generateEmployeeId(),
+    firstName: employee.firstName || fallback.firstName || "",
+    lastName: employee.lastName || fallback.lastName || "",
+    email: employee.email || fallback.email || "",
+    phone: employee.phone || fallback.phone || "",
+    department: employee.department || fallback.department || "",
+    jobTitle: employee.jobTitle || fallback.jobTitle || "",
+    lineManagerUserId: employee.lineManagerUserId || "",
+    status: employee.status || fallback.status || "probation",
+    userAccountStatus: employee.userAccountStatus || "active",
+    templateId: employee.templateId || fallback.templateId || "",
+    roleCategories: employee.roleCategories || fallback.roleCategories || ["staff"],
+    ...employee
+  };
+}
+
 function bindGlobalHandlers() {
   if (globalHandlersBound) return;
   globalHandlersBound = true;
@@ -198,8 +218,12 @@ function renderView() {
     employees: renderEmployees, periods: renderPeriods, appraisals: renderAppraisals, reports: renderReports,
     help: renderHelp, audit: renderAudit, profile: renderProfile, results: renderResults, users: renderUsers
   };
-  target.innerHTML = renderers[state.view]?.() || "<div class='empty'>No view configured.</div>";
-  attachHandlers();
+  try {
+    target.innerHTML = renderers[state.view]?.() || "<div class='empty'>No view configured.</div>";
+    attachHandlers();
+  } catch (error) {
+    target.innerHTML = `<section class="card"><h2>Unable to render this view</h2><div class="error">${escapeHtml(error.message)}</div></section>`;
+  }
 }
 
 function renderDashboard() {
@@ -1710,10 +1734,14 @@ function bindEmployeeCreateForm() {
       return;
     }
     try {
-      const created = await api("/api/employees", { method: "POST", body });
+      const created = normalizeCreatedEmployee(await api("/api/employees", { method: "POST", body }), body);
       state.data = await api("/api/bootstrap");
       mergeCreatedRecord("employees", created, (item, record) => item.id === record.id || item.employeeId === record.employeeId || item.email === record.email);
+      state.employeeNameFilter = "";
+      state.employeeDepartmentFilter = "all";
+      state.employeeRoleFilter = "all";
       state.employeePage = 1;
+      state.view = "employees";
       document.querySelector(".modal-backdrop")?.remove();
       toast("Employee created");
       renderShell();
