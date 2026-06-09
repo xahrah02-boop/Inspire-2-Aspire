@@ -6,7 +6,7 @@ let globalHandlersBound = false;
 const roleMenus = {
   SUPER_ADMIN: ["dashboard", "users", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
   HR_ADMIN: ["dashboard", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
-  LINE_MANAGER: ["profile", "employees", "appraisals", "help"],
+  LINE_MANAGER: ["dashboard", "profile", "employees", "appraisals", "help"],
   EMPLOYEE: ["profile", "kpis", "results", "help"]
 };
 
@@ -227,8 +227,43 @@ function renderView() {
 }
 
 function renderDashboard() {
+  if (state.user.role === "LINE_MANAGER") return renderManagerDashboard();
   const cards = state.data.dashboard.cards.map(([label, value]) => `<article class="card"><div class="metric">${escapeHtml(label)}</div><div class="metric-value">${typeof value === "object" ? Object.entries(value).map(([k, v]) => `${k}: ${v}`).join("<br>") : escapeHtml(value)}</div></article>`).join("");
   return `<div class="grid cards">${cards}</div><div class="split" style="margin-top:14px">${panel("Notifications", table(state.data.notifications || [], ["title", "message"], []))}${panel("Workflow", workflow())}</div>`;
+}
+
+function renderManagerDashboard() {
+  const cards = state.data.dashboard.cards.map(([label, value]) => `<article class="card"><div class="metric">${escapeHtml(label)}</div><div class="metric-value">${escapeHtml(value)}</div></article>`).join("");
+  const reviews = managerReviewRows();
+  return `<div class="grid cards">${cards}</div>
+    ${panel("Assigned staff KPI reviews", reviews.length ? managerReviewTable(reviews) : "<div class='empty'>No assigned staff with KPIs yet.</div>")}`;
+}
+
+function managerReviewRows() {
+  return state.data.appraisals
+    .filter(appraisal => appraisal.employee)
+    .map(appraisal => {
+      const comments = appraisal.scores.filter(score => score.employeeComment);
+      return {
+        appraisal,
+        employee: appraisal.employee,
+        commentSummary: comments.length ? `${comments.length} KPI comment${comments.length === 1 ? "" : "s"} submitted` : "No employee comment yet",
+        unconfirmed: comments.filter(score => !score.managerConfirmedEmployeeComment).length
+      };
+    });
+}
+
+function managerReviewTable(rows) {
+  return `<div class="table-wrap"><table><thead><tr>
+    <th>Employee</th><th>Department</th><th>Designation</th><th>KPI comments</th><th>Review status</th><th>Action</th>
+  </tr></thead><tbody>${rows.map(row => `<tr>
+    <td>${escapeHtml(`${row.employee.firstName} ${row.employee.lastName}`)}</td>
+    <td>${escapeHtml(row.employee.department)}</td>
+    <td>${escapeHtml(row.employee.jobTitle)}</td>
+    <td>${escapeHtml(row.commentSummary)}${row.unconfirmed ? ` · ${row.unconfirmed} pending confirmation` : ""}</td>
+    <td><span class="badge ${escapeHtml(row.appraisal.status)}">${escapeHtml(row.appraisal.status)}</span></td>
+    <td><button type="button" data-open-manager-review="${escapeHtml(row.appraisal.id)}">Open KPI Review</button></td>
+  </tr>`).join("")}</tbody></table></div>`;
 }
 
 function workflow() {
@@ -370,7 +405,7 @@ function appraisalCard(appraisal) {
 function managerScoreForm(appraisal) {
   return `<form data-manager-score-form="${escapeHtml(appraisal.id)}">
     <div class="table-wrap appraisal-score-wrap"><table class="score-table"><thead><tr>
-      <th>KPI</th><th>Weight</th><th>Target</th><th>Score</th><th>Actual result</th><th>Manager comment</th><th>Evidence</th><th>Employee comment</th><th>Comment status</th><th>Weighted</th>
+      <th>KPI</th><th>Weight</th><th>Target</th><th>Score</th><th>Actual result</th><th>Manager review comment</th><th>Supporting document</th><th>Employee KPI comment</th><th>Comment status</th><th>Weighted</th>
     </tr></thead><tbody>${appraisal.scores.map(score => `<tr data-score-row="${escapeHtml(score.id)}">
       <td><strong>${escapeHtml(score.title)}</strong></td>
       <td>${escapeHtml(score.weight)}%</td>
@@ -381,7 +416,7 @@ function managerScoreForm(appraisal) {
       <td>
         <label class="file-field">
           <input name="evidenceFile" type="file" data-score-field="evidenceFile">
-          <span>Attach file</span>
+          <span>Attach document</span>
         </label>
         <div class="hint evidence-name">${escapeHtml(score.evidenceFileName || score.evidenceNote || "No file attached")}</div>
       </td>
@@ -439,13 +474,18 @@ function renderProfile() {
 
 function managerAssignedEmployeesTable(rows) {
   return `<div class="table-wrap"><table><thead><tr>
-    <th>Employee</th><th>Department</th><th>Designation</th><th>Status</th>
+    <th>Employee</th><th>Department</th><th>Designation</th><th>Status</th><th>Action</th>
   </tr></thead><tbody>${rows.map(employee => `<tr class="clickable-row" data-employee="${employee.id}">
     <td><button class="link-button" type="button">${escapeHtml(`${employee.firstName} ${employee.lastName}`)}</button></td>
     <td>${escapeHtml(employee.department)}</td>
     <td>${escapeHtml(employee.jobTitle)}</td>
     <td><span class="badge ${escapeHtml(employee.status)}">${escapeHtml(employee.status)}</span></td>
+    <td>${managerAppraisalForEmployee(employee.id) ? `<button type="button" data-open-manager-review="${escapeHtml(managerAppraisalForEmployee(employee.id).id)}">Open KPI Review</button>` : ""}</td>
   </tr>`).join("")}</tbody></table></div>`;
+}
+
+function managerAppraisalForEmployee(employeeId) {
+  return state.data.appraisals.find(appraisal => appraisal.employeeId === employeeId);
 }
 
 function renderReports() {
@@ -1590,6 +1630,12 @@ function attachHandlers() {
   }));
   document.querySelectorAll("[data-open-appraisal]").forEach(button => button.addEventListener("click", () => {
     const appraisal = state.data.appraisals.find(item => item.id === button.dataset.openAppraisal);
+    if (appraisal) openModal(appraisalModal(appraisal));
+  }));
+  document.querySelectorAll("[data-open-manager-review]").forEach(button => button.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const appraisal = state.data.appraisals.find(item => item.id === button.dataset.openManagerReview);
     if (appraisal) openModal(appraisalModal(appraisal));
   }));
   document.querySelectorAll("[data-score-field='evidenceFile']").forEach(input => input.addEventListener("change", event => {

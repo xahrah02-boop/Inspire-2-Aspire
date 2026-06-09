@@ -160,9 +160,7 @@ function bootstrap_(user) {
       return kpiMatchesEmployee_(kpi, employee);
     });
   }) : allKpis;
-  const appraisals = readRows_("Appraisals").map(parseAppraisal_).filter(appraisal => {
-    return user.role === "HR_ADMIN" || employees.some(employee => employee.id === appraisal.employeeId);
-  });
+  const appraisals = appraisalQueueFor_(user, employees);
   return {
     user: publicUser_(user),
     dashboard: dashboardFor_(user),
@@ -442,16 +440,26 @@ function saveEmployeeKpiComments_(user, body) {
 }
 
 function updateAppraisal_(user, id, body) {
-  const appraisal = parseAppraisal_(readById_("Appraisals", id));
+  let appraisal = readRows_("Appraisals").map(parseAppraisal_).find(function(row) { return row.id === id; });
+  if (!appraisal && id.indexOf("queue-") === 0) {
+    const parts = id.match(/^queue-(.+)-(period-.+)$/) || [];
+    const employee = readRows_("Employees").find(function(row) { return row.id === parts[1]; });
+    if (employee) {
+      appraisal = makeAppraisal_(employee, parts[2]);
+      appraisal.id = "app-" + Date.now();
+      appendRow_("Appraisals", serializeAppraisal_(appraisal));
+    }
+  }
+  if (!appraisal) throw new Error("Appraisal record not found.");
   if (user.role === "LINE_MANAGER") {
     const employee = readById_("Employees", appraisal.employeeId);
     if (!managerCanAccessEmployee_(user, employee)) throw new Error("Line managers can only update assigned employees.");
     if (body.confirmEmployeeComments) appraisal.scores.forEach(score => score.managerConfirmedEmployeeComment = true);
     if (body.scores) appraisal.scores = body.scores;
-    if (body.submit) appraisal.status = "Submitted";
+    appraisal.status = body.submit ? "Submitted" : "Draft";
   }
-  updateRow_("Appraisals", id, serializeAppraisal_(appraisal));
-  return appraisal;
+  updateRow_("Appraisals", appraisal.id, serializeAppraisal_(appraisal));
+  return decorateAppraisal_(appraisal);
 }
 
 function dashboardFor_(user) {
@@ -486,8 +494,44 @@ function makeAppraisal_(employee, periodId) {
     periodId,
     managerUserId: employee.lineManagerUserId,
     status: "Draft",
-    scores: items.map((item, i) => ({ id: "score-" + Date.now() + "-" + i, title: item.title, weight: item.weight, target: item.target || "", score: 18, employeeComment: "", managerConfirmedEmployeeComment: false }))
+    scores: items.map((item, i) => ({ id: "score-" + Date.now() + "-" + i, title: item.title, weight: item.weight, target: item.target || "", score: 18, actualResult: "", managerComment: "", evidenceNote: "", employeeComment: "", managerConfirmedEmployeeComment: false }))
   };
+}
+
+function appraisalQueueFor_(user, employees) {
+  const periods = readRows_("AppraisalPeriods").map(parsePeriod_);
+  const periodId = (periods.find(function(period) { return period.status === "open"; }) || periods[0] || {}).id || "";
+  const appraisals = readRows_("Appraisals").map(parseAppraisal_);
+  if (user.role === "HR_ADMIN" || user.role === "SUPER_ADMIN") return appraisals.map(decorateAppraisal_);
+  return employees.map(function(employee) {
+    const appraisal = appraisals.find(function(row) {
+      return row.employeeId === employee.id && row.periodId === periodId;
+    });
+    if (appraisal) return decorateAppraisal_(appraisal);
+    const queued = makeAppraisal_(employee, periodId);
+    queued.id = "queue-" + employee.id + "-" + periodId;
+    queued.status = "Not Started";
+    return decorateAppraisal_(queued);
+  });
+}
+
+function decorateAppraisal_(appraisal) {
+  const employee = readRows_("Employees").find(function(row) { return row.id === appraisal.employeeId; });
+  const finalScore = calculateFinalScore_(appraisal.scores || []);
+  return Object.assign({}, appraisal, { employee: employee, finalScore: finalScore, rating: ratingForScore_(finalScore) });
+}
+
+function calculateFinalScore_(scores) {
+  return Math.round((scores || []).reduce(function(total, score) {
+    return total + (Number(score.score || 0) * Number(score.weight || 0) / 100);
+  }, 0) * 100) / 100;
+}
+
+function ratingForScore_(score) {
+  if (score >= 24) return "Exceeds expectations";
+  if (score >= 18) return "Meets expectations";
+  if (score >= 12) return "Needs improvement";
+  return "Unsatisfactory";
 }
 
 function parseTemplate_(row) {
