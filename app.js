@@ -1515,7 +1515,10 @@ function attachHandlers() {
     }
     deleteKpiRecord(kpiId);
   });
-  document.querySelector("[data-create-employee]")?.addEventListener("click", () => openModal(employeeCreateModal()));
+  document.querySelector("[data-create-employee]")?.addEventListener("click", () => {
+    openModal(employeeCreateModal());
+    bindEmployeeCreateForm();
+  });
   bindEmployeeCreateForm();
   bindPeriodCreateForm();
   document.querySelector("[data-create-period]")?.addEventListener("click", () => {
@@ -1723,7 +1726,10 @@ async function deleteDepartmentRecord(departmentId) {
 }
 
 function bindEmployeeCreateForm() {
-  document.querySelector("#employeeForm")?.addEventListener("submit", async event => {
+  const form = document.querySelector("#employeeForm");
+  if (!form || form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+  form.addEventListener("submit", async event => {
     event.preventDefault();
     const body = formObject(event.currentTarget);
     body.employeeId = body.employeeId || generateEmployeeId();
@@ -1750,7 +1756,7 @@ function bindEmployeeCreateForm() {
       toast(error.message);
     }
   });
-  document.querySelector("#employeeForm select[name='department']")?.addEventListener("change", event => {
+  form.querySelector("select[name='department']")?.addEventListener("change", event => {
     refreshLineManagerOptions(event.currentTarget.closest("form"));
   });
 }
@@ -1763,6 +1769,7 @@ function openModal(html) {
     }
   }));
   bindKpiCreateForm();
+  bindEmployeeCreateForm();
   document.querySelector("[data-edit-department-detail]")?.addEventListener("click", event => {
     const dept = state.data.departments.find(item => item.id === event.currentTarget.dataset.editDepartmentDetail);
     if (!dept) return;
