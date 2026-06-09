@@ -1710,8 +1710,10 @@ function bindEmployeeCreateForm() {
       return;
     }
     try {
-      await api("/api/employees", { method: "POST", body });
+      const created = await api("/api/employees", { method: "POST", body });
       state.data = await api("/api/bootstrap");
+      mergeCreatedRecord("employees", created, (item, record) => item.id === record.id || item.employeeId === record.employeeId || item.email === record.email);
+      state.employeePage = 1;
       document.querySelector(".modal-backdrop")?.remove();
       toast("Employee created");
       renderShell();
