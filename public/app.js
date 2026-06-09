@@ -959,8 +959,21 @@ function managerAssignedAppraisals() {
   if (state.user.role !== "LINE_MANAGER") return state.data.appraisals;
   const periodId = state.data.periods.find(period => period.status === "open")?.id || state.data.periods[0]?.id || "";
   const rows = [];
+  const addedEmployees = new Set();
+  for (const appraisal of state.data.appraisals) {
+    const employee = appraisal.employee || state.data.employees.find(item =>
+      employeeRecordKey(item) === appraisal.employeeId ||
+      item.id === appraisal.employeeId ||
+      item.employeeId === appraisal.employeeId
+    );
+    if (!employee || employee.userId === state.user.id) continue;
+    const key = employeeRecordKey(employee) || appraisal.employeeId;
+    rows.push({ ...appraisal, employee });
+    addedEmployees.add(key);
+  }
   for (const employee of managerAttachedEmployees()) {
     const key = employeeRecordKey(employee);
+    if (addedEmployees.has(key)) continue;
     const existing = state.data.appraisals.find(appraisal =>
       appraisal.employeeId === key ||
       appraisal.employeeId === employee.id ||
@@ -970,6 +983,7 @@ function managerAssignedAppraisals() {
     );
     if (existing) {
       rows.push({ ...existing, employee: existing.employee || employee });
+      addedEmployees.add(key);
       continue;
     }
     const scores = employeeAssignedKpiRows(employee).map((score, index) => ({
@@ -996,6 +1010,7 @@ function managerAssignedAppraisals() {
       finalScore: 0,
       rating: "Not rated"
     });
+    addedEmployees.add(key);
   }
   return rows;
 }
