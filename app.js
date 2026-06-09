@@ -373,13 +373,36 @@ function renderPeriods() {
 
 function renderAppraisals() {
   const rows = state.user.role === "LINE_MANAGER" ? filteredManagerAppraisals() : filteredAppraisals();
-  if (!rows.length) return "<div class='empty'>No appraisal assigned yet.</div>";
+  if (!rows.length) return state.user.role === "LINE_MANAGER"
+    ? "<div class='empty'>No staff is attached to this manager yet.</div>"
+    : "<div class='empty'>No appraisal assigned yet.</div>";
   if (state.user.role === "LINE_MANAGER") return renderManagerAppraisalResults(rows);
   return `${periodToolbar()}<div class="appraisal-list">${rows.map(appraisalLine).join("")}</div>`;
 }
 
 function renderManagerAppraisalResults(rows) {
-  return `${periodToolbar()}<div class="appraisal-list">${rows.map(managerAppraisalResultLine).join("")}</div>`;
+  return `${periodToolbar()}
+    ${panel("Staff attached to me for scoring", managerStaffScoringTable(rows))}
+    <div class="appraisal-list">${rows.map(managerAppraisalResultLine).join("")}</div>`;
+}
+
+function managerStaffScoringTable(rows) {
+  if (!rows.length) return "<div class='empty'>No staff attached to this manager yet.</div>";
+  return `<div class="table-wrap"><table><thead><tr>
+    <th>Staff name</th><th>Department</th><th>Designation</th><th>Assigned KPIs</th><th>Employee comments</th><th>Score status</th><th>Action</th>
+  </tr></thead><tbody>${rows.map(appraisal => {
+    const employee = appraisal.employee || {};
+    const comments = (appraisal.scores || []).filter(score => score.employeeComment).length;
+    return `<tr>
+      <td><strong>${escapeHtml(`${employee.firstName || ""} ${employee.lastName || ""}`.trim() || "Employee")}</strong></td>
+      <td>${escapeHtml(employee.department || "")}</td>
+      <td>${escapeHtml(employee.jobTitle || "")}</td>
+      <td>${escapeHtml((appraisal.scores || []).length)}</td>
+      <td>${escapeHtml(comments)}</td>
+      <td><span class="badge ${escapeHtml(appraisal.status)}">${escapeHtml(appraisal.status)}</span></td>
+      <td><button type="button" data-open-manager-review="${escapeHtml(appraisal.id)}">Open Score Sheet</button></td>
+    </tr>`;
+  }).join("")}</tbody></table></div>`;
 }
 
 function managerAppraisalResultLine(appraisal) {
