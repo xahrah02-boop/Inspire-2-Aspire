@@ -1232,7 +1232,7 @@ function userName(id) {
 }
 
 function lineManagerOptions(selected = "", department = "all") {
-  const blankOption = `<option value="" ${!selected ? "selected" : ""}>Nil / no assignee yet</option>`;
+  const blankOption = `<option value="nil" ${!selected || selected === "nil" ? "selected" : ""}>Nil / no assignee yet</option>`;
   const employeeOptions = state.data.employees
     .filter(employee => employee.userId && (department === "all" || employee.department === department))
     .map(employee => ({
@@ -1848,6 +1848,7 @@ function bindAppraisalButtons(root = document) {
 function formObject(form) {
   const data = new FormData(form);
   const obj = Object.fromEntries(data);
+  if (obj.lineManagerUserId === "nil") obj.lineManagerUserId = "";
   const roleCategories = data.getAll("roleCategories");
   if (form.querySelector("[name='roleCategories']")) obj.roleCategories = roleCategories.length ? roleCategories : ["staff"];
   const departments = data.getAll("departments");
