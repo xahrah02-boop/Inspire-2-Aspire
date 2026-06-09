@@ -52,14 +52,15 @@ function dashboardFor(user) {
     completedAppraisals: data.appraisals.filter(a => ["Approved", "Published", "Acknowledged"].includes(a.status)).length
   };
   if (user.role === Roles.LINE_MANAGER) {
-    const myEmployees = data.employees.filter(e => e.lineManagerUserId === user.id);
+    const myEmployees = managerAssignedEmployees(user);
+    const myAppraisals = appraisalQueueFor(user, myEmployees);
     return {
       cards: [
         ["My assigned employees", myEmployees.length],
-        ["Appraisals due", myEmployees.length - data.appraisals.filter(a => a.managerUserId === user.id).length],
-        ["Draft appraisals", data.appraisals.filter(a => a.managerUserId === user.id && a.status === "Draft").length],
-        ["Submitted appraisals", data.appraisals.filter(a => a.managerUserId === user.id && a.status === "Submitted").length],
-        ["Performance attention", data.appraisals.filter(a => a.managerUserId === user.id && finalScore(a) < 3).length]
+        ["Appraisals due", myAppraisals.filter(a => a.status === "Not Started").length],
+        ["Draft appraisals", myAppraisals.filter(a => a.status === "Draft").length],
+        ["Submitted appraisals", myAppraisals.filter(a => a.status === "Submitted").length],
+        ["Performance attention", myAppraisals.filter(a => finalScore(a) < 12).length]
       ]
     };
   }
@@ -113,10 +114,45 @@ function finalScore(appraisal) {
 
 function visibleEmployees(user) {
   if (user.role === Roles.LINE_MANAGER) {
-    const managerEmployeeIds = data.employees.filter(employee => employee.userId === user.id).map(employee => employee.id);
-    return data.employees.filter(employee => employee.lineManagerUserId === user.id || managerEmployeeIds.includes(employee.lineManagerUserId));
+    const managerProfiles = data.employees.filter(employee => employee.userId === user.id);
+    return uniqueById([...managerProfiles, ...managerAssignedEmployees(user)]);
   }
   return data.employees.filter(employee => canViewEmployee(user, employee));
+}
+
+function managerKeys(user) {
+  return [
+    user.id,
+    ...data.employees
+      .filter(employee => employee.userId === user.id)
+      .flatMap(employee => [employee.id, employee.employeeId])
+  ].filter(Boolean);
+}
+
+function managerDepartmentNames(user) {
+  const keys = managerKeys(user);
+  return data.departments
+    .filter(department => keys.includes(department.head) || keys.includes(department.managerialRole) || keys.includes(department.supervisoryRole))
+    .map(department => department.name);
+}
+
+function managerAssignedEmployees(user) {
+  const keys = managerKeys(user);
+  const departments = managerDepartmentNames(user);
+  return data.employees.filter(employee =>
+    employee.userId !== user.id &&
+    (keys.includes(employee.lineManagerUserId) || departments.includes(employee.department))
+  );
+}
+
+function uniqueById(rows) {
+  const seen = new Set();
+  return rows.filter(row => {
+    const key = row.id || row.employeeId || row.userId || row.email;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function publicUser(user) {
@@ -547,8 +583,7 @@ function kpiMatchesEmployee(kpi, employee) {
 
 function managerCanAccessEmployee(user, employee) {
   if (!employee) return false;
-  const managerEmployeeIds = data.employees.filter(item => item.userId === user.id).map(item => item.id);
-  return employee.lineManagerUserId === user.id || managerEmployeeIds.includes(employee.lineManagerUserId);
+  return managerAssignedEmployees(user).some(item => item.id === employee.id || item.employeeId === employee.employeeId);
 }
 
 function appraisalQueueFor(user, employees) {

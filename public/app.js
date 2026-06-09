@@ -69,7 +69,7 @@ function mergeCreatedRecord(collection, record, matcher) {
 function normalizeCreatedEmployee(employee, fallback = {}) {
   if (!employee) return employee;
   return {
-    id: employee.id || `emp-${Date.now()}`,
+    id: employeeRecordKey(employee) || `emp-${Date.now()}`,
     employeeId: employee.employeeId || fallback.employeeId || generateEmployeeId(),
     firstName: employee.firstName || fallback.firstName || "",
     lastName: employee.lastName || fallback.lastName || "",
@@ -84,6 +84,10 @@ function normalizeCreatedEmployee(employee, fallback = {}) {
     roleCategories: employee.roleCategories || fallback.roleCategories || ["staff"],
     ...employee
   };
+}
+
+function employeeRecordKey(employee) {
+  return employee?.id || employee?.employeeId || employee?.userId || employee?.email || "";
 }
 
 function bindGlobalHandlers() {
@@ -381,8 +385,7 @@ function renderAppraisals() {
 }
 
 function renderManagerAppraisalResults(rows) {
-  return `${periodToolbar()}
-    ${panel("Staff attached to me for scoring", managerStaffScoringTable(rows))}
+  return `${panel("Staff attached to me for scoring", managerStaffScoringTable(rows))}
     <div class="appraisal-list">${rows.map(managerAppraisalResultLine).join("")}</div>`;
 }
 
@@ -521,7 +524,7 @@ function renderResults() {
 
 function renderProfile() {
   if (state.user.role === "LINE_MANAGER") {
-    const assigned = state.data.employees.filter(employee => employee.userId !== state.user.id);
+    const assigned = managerAttachedEmployees();
     const managerRecord = state.data.employees.find(employee => employee.userId === state.user.id);
     return `${panel("My profile", managerRecord ? table([managerRecord], ["employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "status"], ["status"]) : `<div class="card"><h2>${escapeHtml(state.user.name)}</h2><div class="hint">${escapeHtml(state.user.email)} · Line Manager</div></div>`)}
       ${panel("Employees assigned to me", assigned.length ? managerAssignedEmployeesTable(assigned) : "<div class='empty'>No employees assigned yet.</div>")}`;
@@ -534,17 +537,21 @@ function renderProfile() {
 function managerAssignedEmployeesTable(rows) {
   return `<div class="table-wrap"><table><thead><tr>
     <th>Employee</th><th>Department</th><th>Designation</th><th>Status</th><th>Action</th>
-  </tr></thead><tbody>${rows.map(employee => `<tr class="clickable-row" data-employee="${employee.id}">
+  </tr></thead><tbody>${rows.map(employee => `<tr class="clickable-row" data-employee="${escapeHtml(employeeRecordKey(employee))}">
     <td><button class="link-button" type="button">${escapeHtml(`${employee.firstName} ${employee.lastName}`)}</button></td>
     <td>${escapeHtml(employee.department)}</td>
     <td>${escapeHtml(employee.jobTitle)}</td>
     <td><span class="badge ${escapeHtml(employee.status)}">${escapeHtml(employee.status)}</span></td>
-    <td>${managerAppraisalForEmployee(employee.id) ? `<button type="button" data-open-manager-review="${escapeHtml(managerAppraisalForEmployee(employee.id).id)}">Open KPI Review</button>` : ""}</td>
+    <td>${managerAppraisalForEmployee(employeeRecordKey(employee)) ? `<button type="button" data-open-manager-review="${escapeHtml(managerAppraisalForEmployee(employeeRecordKey(employee)).id)}">Open KPI Review</button>` : ""}</td>
   </tr>`).join("")}</tbody></table></div>`;
 }
 
 function managerAppraisalForEmployee(employeeId) {
-  return state.data.appraisals.find(appraisal => appraisal.employeeId === employeeId);
+  return managerAssignedAppraisals().find(appraisal =>
+    appraisal.employeeId === employeeId ||
+    appraisal.employee?.id === employeeId ||
+    appraisal.employee?.employeeId === employeeId
+  );
 }
 
 function renderReports() {
@@ -792,7 +799,7 @@ function employeeTable(rows) {
   if (!rows.length) return "<div class='empty'>No records found.</div>";
   return `<div class="table-wrap"><table><thead><tr>
     <th>Employee ID</th><th>Employee</th><th>Department</th><th>Designation</th><th>Role categories</th><th>Manager</th><th>Status</th>
-  </tr></thead><tbody>${rows.map(e => `<tr class="clickable-row" data-employee="${e.id}">
+  </tr></thead><tbody>${rows.map(e => `<tr class="clickable-row" data-employee="${escapeHtml(employeeRecordKey(e))}">
     <td>${escapeHtml(e.employeeId)}</td>
     <td><button class="link-button" type="button">${escapeHtml(`${e.firstName} ${e.lastName}`)}</button></td>
     <td>${escapeHtml(e.department)}</td>
@@ -822,7 +829,7 @@ function employeePagination(total, totalPages) {
 
 function employeeModal(employee) {
   const history = state.data.appraisals
-    .filter(a => a.employee?.id === employee.id && a.status !== "Not Started")
+    .filter(a => employeeRecordKey(a.employee) === employeeRecordKey(employee) && a.status !== "Not Started")
     .sort((a, b) => String(b.periodId).localeCompare(String(a.periodId)))
     .slice(0, 6);
   return `<div class="modal-backdrop" data-close-modal>
@@ -849,7 +856,7 @@ function employeeModal(employee) {
 function employeeEditForm(employee) {
   return `<section class="card edit-section">
     <h3>Edit employee master</h3>
-    <form id="employeeEditForm" class="form-grid" data-employee-id="${employee.id}">
+    <form id="employeeEditForm" class="form-grid" data-employee-id="${escapeHtml(employeeRecordKey(employee))}">
       <div class="field"><label>Employee ID</label><input name="employeeId" value="${escapeHtml(employee.employeeId)}" required></div>
       <div class="field"><label>First name</label><input name="firstName" value="${escapeHtml(employee.firstName)}" required></div>
       <div class="field"><label>Last name</label><input name="lastName" value="${escapeHtml(employee.lastName)}" required></div>
@@ -929,22 +936,44 @@ function filteredAppraisals() {
 }
 
 function filteredManagerAppraisals() {
-  const rows = managerAssignedAppraisals();
-  return state.periodFilter === "all" ? rows : rows.filter(appraisal => appraisal.periodId === state.periodFilter);
+  return managerAssignedAppraisals();
+}
+
+function managerAttachedEmployees() {
+  if (state.user.role !== "LINE_MANAGER") return [];
+  const managerRecord = state.data.employees.find(employee => employee.userId === state.user.id);
+  const managerKeys = [state.user.id, managerRecord?.id, managerRecord?.employeeId].filter(Boolean);
+  const staffRows = state.data.employees.filter(employee => employee.userId !== state.user.id);
+  const explicitRows = staffRows.filter(employee =>
+    managerKeys.includes(employee.lineManagerUserId)
+  );
+  if (explicitRows.length) return explicitRows;
+  const managedDepartments = new Set(state.data.departments
+    .filter(department => managerKeys.includes(department.head) || managerKeys.includes(department.managerialRole) || managerKeys.includes(department.supervisoryRole))
+    .map(department => department.name));
+  const departmentRows = staffRows.filter(employee => managedDepartments.has(employee.department));
+  return departmentRows.length ? departmentRows : staffRows;
 }
 
 function managerAssignedAppraisals() {
   if (state.user.role !== "LINE_MANAGER") return state.data.appraisals;
   const periodId = state.data.periods.find(period => period.status === "open")?.id || state.data.periods[0]?.id || "";
   const rows = [];
-  for (const employee of state.data.employees.filter(employee => employee.userId !== state.user.id)) {
-    const existing = state.data.appraisals.find(appraisal => appraisal.employeeId === employee.id || appraisal.employee?.id === employee.id);
+  for (const employee of managerAttachedEmployees()) {
+    const key = employeeRecordKey(employee);
+    const existing = state.data.appraisals.find(appraisal =>
+      appraisal.employeeId === key ||
+      appraisal.employeeId === employee.id ||
+      appraisal.employeeId === employee.employeeId ||
+      appraisal.employee?.id === key ||
+      appraisal.employee?.employeeId === key
+    );
     if (existing) {
       rows.push({ ...existing, employee: existing.employee || employee });
       continue;
     }
     const scores = employeeAssignedKpiRows(employee).map((score, index) => ({
-      id: score.id || `queue-${employee.id}-score-${index + 1}`,
+      id: score.id || `queue-${key}-score-${index + 1}`,
       title: score.title,
       weight: score.weight,
       target: score.target || "Meet or exceed approved target",
@@ -957,8 +986,8 @@ function managerAssignedAppraisals() {
       managerConfirmedEmployeeComment: Boolean(score.managerConfirmedEmployeeComment)
     }));
     rows.push({
-      id: `queue-${employee.id}-${periodId}`,
-      employeeId: employee.id,
+      id: `queue-${key}-${periodId}`,
+      employeeId: key,
       employee,
       periodId,
       managerUserId: employee.lineManagerUserId,
@@ -1358,7 +1387,7 @@ function employeeSelect(name, label, selected = "", category = "all", department
   });
   return `<div class="field"><label>${label}</label><select name="${name}">
     <option value="">Not assigned</option>
-    ${rows.map(employee => `<option value="${employee.id}" ${selected === employee.id ? "selected" : ""}>${escapeHtml(`${employee.firstName} ${employee.lastName} - ${employee.employeeId} - ${employee.department}`)}</option>`).join("")}
+    ${rows.map(employee => `<option value="${escapeHtml(employeeRecordKey(employee))}" ${selected === employeeRecordKey(employee) ? "selected" : ""}>${escapeHtml(`${employee.firstName} ${employee.lastName} - ${employee.employeeId} - ${employee.department}`)}</option>`).join("")}
   </select></div>`;
 }
 
@@ -1750,7 +1779,7 @@ function attachHandlers() {
   }));
   document.querySelectorAll("[data-employee]").forEach(el => el.addEventListener("click", event => {
     event.preventDefault();
-    const employee = state.data.employees.find(item => item.id === el.dataset.employee);
+    const employee = state.data.employees.find(item => employeeRecordKey(item) === el.dataset.employee);
     if (employee) openModal(employeeModal(employee));
   }));
   document.querySelectorAll("[data-toggle-appraisal]").forEach(button => button.addEventListener("click", () => {
@@ -1768,7 +1797,8 @@ function attachHandlers() {
   document.querySelectorAll("[data-open-manager-review]").forEach(button => button.addEventListener("click", event => {
     event.preventDefault();
     event.stopPropagation();
-    const appraisal = state.data.appraisals.find(item => item.id === button.dataset.openManagerReview);
+    const appraisal = state.data.appraisals.find(item => item.id === button.dataset.openManagerReview)
+      || managerAssignedAppraisals().find(item => item.id === button.dataset.openManagerReview);
     if (appraisal) openModal(appraisalModal(appraisal));
   }));
   document.querySelectorAll("[data-score-field='evidenceFile']").forEach(input => input.addEventListener("change", event => {

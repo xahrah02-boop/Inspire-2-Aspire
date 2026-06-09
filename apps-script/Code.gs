@@ -187,16 +187,46 @@ function visibleEmployees_(user) {
   const employees = readRows_("Employees");
   if (user.role === "HR_ADMIN") return employees;
   if (user.role === "LINE_MANAGER") {
-    const managerEmployeeIds = employees.filter(function(employee) {
-      return employee.userId === user.id;
-    }).map(function(employee) {
-      return employee.id;
-    });
-    return employees.filter(function(employee) {
-      return employee.lineManagerUserId === user.id || managerEmployeeIds.indexOf(employee.lineManagerUserId) !== -1;
-    });
+    const managerProfiles = employees.filter(function(employee) { return employee.userId === user.id; });
+    return uniqueByEmployeeKey_(managerProfiles.concat(managerAssignedEmployees_(user)));
   }
   return employees.filter(employee => employee.userId === user.id);
+}
+
+function managerKeys_(user) {
+  const employees = readRows_("Employees");
+  let keys = [user.id];
+  employees.filter(function(employee) { return employee.userId === user.id; }).forEach(function(employee) {
+    keys.push(employee.id);
+    keys.push(employee.employeeId);
+  });
+  return keys.filter(Boolean);
+}
+
+function managerDepartmentNames_(user) {
+  const keys = managerKeys_(user);
+  return readRows_("Departments").filter(function(department) {
+    return keys.indexOf(department.head) !== -1 || keys.indexOf(department.managerialRole) !== -1 || keys.indexOf(department.supervisoryRole) !== -1;
+  }).map(function(department) { return department.name; });
+}
+
+function managerAssignedEmployees_(user) {
+  const keys = managerKeys_(user);
+  const departments = managerDepartmentNames_(user);
+  return readRows_("Employees").filter(function(employee) {
+    return employee.userId !== user.id &&
+      (keys.indexOf(employee.lineManagerUserId) !== -1 || departments.indexOf(employee.department) !== -1);
+  });
+}
+
+function uniqueByEmployeeKey_(rows) {
+  const seen = {};
+  return rows.filter(function(row) {
+    const key = row.id || row.employeeId || row.userId || row.email;
+    if (!key || seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
 }
 
 function createDepartment_(user, body) {
@@ -464,17 +494,23 @@ function updateAppraisal_(user, id, body) {
 
 function dashboardFor_(user) {
   const employees = visibleEmployees_(user);
+  if (user.role === "LINE_MANAGER") {
+    const staff = managerAssignedEmployees_(user);
+    const appraisals = appraisalQueueFor_(user, staff);
+    return { cards: [
+      ["My assigned employees", staff.length],
+      ["Appraisals due", appraisals.filter(function(appraisal) { return appraisal.status === "Not Started"; }).length],
+      ["Draft appraisals", appraisals.filter(function(appraisal) { return appraisal.status === "Draft"; }).length],
+      ["Submitted appraisals", appraisals.filter(function(appraisal) { return appraisal.status === "Submitted"; }).length]
+    ] };
+  }
   return { cards: [["Total employees", employees.length], ["Departments", readRows_("Departments").length], ["Open periods", readRows_("AppraisalPeriods").filter(p => p.status === "open").length]] };
 }
 
 function managerCanAccessEmployee_(user, employee) {
-  const employees = readRows_("Employees");
-  const managerEmployeeIds = employees.filter(function(item) {
-    return item.userId === user.id;
-  }).map(function(item) {
-    return item.id;
+  return managerAssignedEmployees_(user).some(function(item) {
+    return item.id === employee.id || item.employeeId === employee.employeeId;
   });
-  return employee.lineManagerUserId === user.id || managerEmployeeIds.indexOf(employee.lineManagerUserId) !== -1;
 }
 
 function reports_() {
