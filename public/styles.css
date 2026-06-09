@@ -379,7 +379,7 @@ th {
   background: #101820;
   overflow: hidden;
 }
-.demo-video-thumb img, .onboarding-video-player img {
+.demo-video-thumb img, .onboarding-video-player img, .onboarding-video-player object {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;

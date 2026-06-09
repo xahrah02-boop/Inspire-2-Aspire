@@ -593,7 +593,9 @@ function onboardingVideoModal() {
         <button class="secondary" data-close-modal type="button">Close</button>
       </div>
       <div class="onboarding-video-player">
-        <img src="./assets/onboarding-demo.svg" alt="ForgeHR onboarding demo video">
+        <object data="./assets/onboarding-demo.svg?v=20260609-play" type="image/svg+xml" aria-label="ForgeHR onboarding demo video">
+          <img src="./assets/onboarding-demo.svg?v=20260609-play" alt="ForgeHR onboarding demo video">
+        </object>
       </div>
     </section>
   </div>`;
