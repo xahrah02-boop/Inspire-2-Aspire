@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="ForgeHR onboarding demo video">
+  <defs>
+    <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#1f6f5b"/>
+      <stop offset="1" stop-color="#315f9f"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#315f9f"/>
+      <stop offset="1" stop-color="#5a6b3d"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#155645"/>
+      <stop offset="1" stop-color="#a86a13"/>
+    </linearGradient>
+    <linearGradient id="g4" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#18202a"/>
+      <stop offset="1" stop-color="#1f6f5b"/>
+    </linearGradient>
+    <style>
+      .scene { opacity: 0; animation: scene 20s infinite; }
+      .s1 { animation-delay: 0s; }
+      .s2 { animation-delay: 5s; }
+      .s3 { animation-delay: 10s; }
+      .s4 { animation-delay: 15s; }
+      .title { font: 700 58px Segoe UI, Arial, sans-serif; fill: #fff; }
+      .text { font: 400 30px Segoe UI, Arial, sans-serif; fill: rgba(255,255,255,.86); }
+      .small { font: 600 22px Segoe UI, Arial, sans-serif; fill: rgba(255,255,255,.72); }
+      .card { fill: rgba(255,255,255,.14); stroke: rgba(255,255,255,.26); stroke-width: 2; }
+      @keyframes scene {
+        0%, 22% { opacity: 1; }
+        25%, 100% { opacity: 0; }
+      }
+    </style>
+  </defs>
+  <rect width="1280" height="720" fill="#101820"/>
+  <g class="scene s1">
+    <rect width="1280" height="720" fill="url(#g1)"/>
+    <text x="88" y="130" class="small">FORGEHR ONBOARDING DEMO</text>
+    <text x="88" y="230" class="title">1. HR assigns KPIs</text>
+    <text x="88" y="292" class="text">Create departments, job roles, KPI Master records, and templates.</text>
+    <rect x="88" y="380" width="270" height="120" rx="12" class="card"/>
+    <text x="120" y="448" class="text">KPI Master</text>
+    <rect x="390" y="380" width="270" height="120" rx="12" class="card"/>
+    <text x="422" y="448" class="text">Templates</text>
+    <rect x="692" y="380" width="270" height="120" rx="12" class="card"/>
+    <text x="724" y="448" class="text">Employees</text>
+  </g>
+  <g class="scene s2">
+    <rect width="1280" height="720" fill="url(#g2)"/>
+    <text x="88" y="130" class="small">EMPLOYEE EXPERIENCE</text>
+    <text x="88" y="230" class="title">2. Employee comments</text>
+    <text x="88" y="292" class="text">Employees open My Assigned KPI and comment on each KPI.</text>
+    <rect x="88" y="370" width="530" height="70" rx="10" class="card"/>
+    <text x="120" y="416" class="text">Output achievement: comment saved</text>
+    <rect x="88" y="462" width="530" height="70" rx="10" class="card"/>
+    <text x="120" y="508" class="text">Quality of work: comment saved</text>
+  </g>
+  <g class="scene s3">
+    <rect width="1280" height="720" fill="url(#g3)"/>
+    <text x="88" y="130" class="small">MANAGER REVIEW</text>
+    <text x="88" y="230" class="title">3. Manager scores KPIs</text>
+    <text x="88" y="292" class="text">Managers review comments, attach supporting documents, and score.</text>
+    <rect x="88" y="384" width="250" height="120" rx="12" class="card"/>
+    <text x="120" y="452" class="text">Score 1-30</text>
+    <rect x="370" y="384" width="310" height="120" rx="12" class="card"/>
+    <text x="402" y="452" class="text">Attach evidence</text>
+    <rect x="712" y="384" width="300" height="120" rx="12" class="card"/>
+    <text x="744" y="452" class="text">Submit review</text>
+  </g>
+  <g class="scene s4">
+    <rect width="1280" height="720" fill="url(#g4)"/>
+    <text x="88" y="130" class="small">HR FINAL REVIEW</text>
+    <text x="88" y="230" class="title">4. HR approves and publishes</text>
+    <text x="88" y="292" class="text">HR reviews results, publishes outcomes, and employees acknowledge.</text>
+    <circle cx="180" cy="452" r="58" fill="rgba(255,255,255,.18)"/>
+    <text x="148" y="464" class="text">HR</text>
+    <path d="M250 452 H520" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="610" cy="452" r="58" fill="rgba(255,255,255,.18)"/>
+    <text x="578" y="464" class="text">OK</text>
+    <path d="M680 452 H950" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="1040" cy="452" r="58" fill="rgba(255,255,255,.18)"/>
+    <text x="1002" y="464" class="text">ACK</text>
+  </g>
+</svg>

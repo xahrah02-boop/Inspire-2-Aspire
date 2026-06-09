@@ -577,12 +577,7 @@ function renderHelp() {
   return `<div class="section-stack">
     ${panel("Onboarding demo video", `<div class="demo-video-card">
       <div class="demo-video-thumb">
-        <div class="demo-video-screen">
-          <div class="demo-video-slide slide-one"><strong>HR assigns KPIs</strong><span>KPI Master · Templates · Employees</span></div>
-          <div class="demo-video-slide slide-two"><strong>Employee comments</strong><span>My Assigned KPI · Save comments</span></div>
-          <div class="demo-video-slide slide-three"><strong>Manager reviews</strong><span>Score · Attach document · Submit</span></div>
-          <div class="demo-video-slide slide-four"><strong>HR approves</strong><span>Review · Publish · Acknowledge</span></div>
-        </div>
+        <img src="./assets/onboarding-demo.svg" alt="ForgeHR onboarding demo video preview">
       </div>
       <div><h3>ForgeHR appraisal walkthrough</h3><p class="hint">A quick visual guide for HR, managers, and employees.</p><button type="button" data-onboarding-video>Watch Demo Video</button></div>
     </div>`)}
@@ -598,13 +593,7 @@ function onboardingVideoModal() {
         <button class="secondary" data-close-modal type="button">Close</button>
       </div>
       <div class="onboarding-video-player">
-        <div class="video-stage">
-          <div class="video-scene scene-one"><strong>1. HR setup</strong><span>Create departments, job roles, KPI master records, and templates.</span></div>
-          <div class="video-scene scene-two"><strong>2. Employee input</strong><span>Employees open My Assigned KPI and save comments on each KPI.</span></div>
-          <div class="video-scene scene-three"><strong>3. Manager review</strong><span>Managers review comments, attach supporting documents, and score each KPI.</span></div>
-          <div class="video-scene scene-four"><strong>4. HR final review</strong><span>HR approves, publishes results, and employees acknowledge outcomes.</span></div>
-        </div>
-        <div class="video-controls"><span></span><span></span><span></span><span></span></div>
+        <img src="./assets/onboarding-demo.svg" alt="ForgeHR onboarding demo video">
       </div>
     </section>
   </div>`;
