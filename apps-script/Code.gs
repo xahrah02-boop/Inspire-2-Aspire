@@ -57,7 +57,7 @@ function setupDatabase() {
     if (!ss.getSheetByName(name)) ss.insertSheet(name);
   });
   setHeaders_("Users", ["id", "email", "name", "role", "status", "password", "token"]);
-  setHeaders_("Employees", ["id", "employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "lineManagerUserId", "status", "userAccountStatus", "templateId", "roleCategories", "userId", "workLocation", "emergencyContact", "notes"]);
+  setHeaders_("Employees", ["employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "lineManagerUserId", "status", "userAccountStatus", "templateId", "roleCategories", "userId", "workLocation", "emergencyContact", "notes"]);
   setHeaders_("Departments", ["id", "name", "managerialRole", "supervisoryRole", "status"]);
   setHeaders_("JobRoles", ["id", "title", "department", "status"]);
   setHeaders_("KpiMaster", ["id", "code", "title", "description", "category", "department", "jobRole", "formula", "target", "weight", "scoringGuide", "dataSource", "frequency", "status"]);
@@ -65,6 +65,7 @@ function setupDatabase() {
   setHeaders_("AppraisalPeriods", ["id", "name", "startDate", "endDate", "type", "status", "departmentsJson"]);
   setHeaders_("Appraisals", ["id", "employeeId", "periodId", "managerUserId", "status", "scoresJson", "overallComment", "hrComment", "published", "acknowledged"]);
   setHeaders_("AuditLogs", ["id", "userId", "action", "module", "record", "oldValue", "newValue", "createdAt"]);
+  migrateEmployeeBackendIdColumn_();
   seedIfEmpty_();
   ensureKpiMasterSeeds_();
 }
@@ -76,7 +77,7 @@ function seedIfEmpty_() {
   appendRow_("Users", { id: "u-emp-1", email: "john.operator@company.test", name: "John Okorie", role: "EMPLOYEE", status: "active", password: "Password123!", token: "" });
   appendRow_("Departments", { id: "dept-1", name: "Production", managerialRole: "emp-1", supervisoryRole: "emp-1", status: "active" });
   appendRow_("JobRoles", { id: "role-1", title: "Production Operator", department: "Production", status: "active" });
-  appendRow_("Employees", { id: "emp-1", employeeId: "EMP-0001", firstName: "John", lastName: "Okorie", email: "john.operator@company.test", phone: "", department: "Production", jobTitle: "Production Operator", lineManagerUserId: "u-mgr-1", status: "confirmed", userAccountStatus: "active", templateId: "tpl-prod", roleCategories: "staff", userId: "u-emp-1", workLocation: "Plant A", emergencyContact: "", notes: "" });
+  appendRow_("Employees", { employeeId: "EMP-0001", firstName: "John", lastName: "Okorie", email: "john.operator@company.test", phone: "", department: "Production", jobTitle: "Production Operator", lineManagerUserId: "u-mgr-1", status: "confirmed", userAccountStatus: "active", templateId: "tpl-prod", roleCategories: "staff", userId: "u-emp-1", workLocation: "Plant A", emergencyContact: "", notes: "" });
   appendRow_("KpiTemplates", { id: "tpl-prod", name: "Production Operator KPI Template", department: "Production", jobRole: "Production Operator", status: "active", itemsJson: JSON.stringify([{ id: "tpl-prod-1", title: "Output achievement", weight: 25 }, { id: "tpl-prod-2", title: "Quality of work", weight: 20 }, { id: "tpl-prod-3", title: "Attendance", weight: 55 }]) });
   appendRow_("AppraisalPeriods", { id: "period-1", name: "Current Annual Review", startDate: "2026-01-01", endDate: "2026-12-31", type: "annual", status: "open", departmentsJson: JSON.stringify(["Production"]) });
 }
@@ -282,14 +283,14 @@ function renameJobRoleReferences_(oldTitle, newTitle) {
 
 function createEmployee_(user, body) {
   requireRole_(user, ["HR_ADMIN"]);
-  const id = "emp-" + Date.now();
   const userId = "u-emp-" + Date.now();
-  const employee = Object.assign({ id, userId, userAccountStatus: "active", roleCategories: "staff" }, body);
+  const employee = Object.assign({ userId, userAccountStatus: "active", roleCategories: "staff" }, body);
   employee.employeeId = employee.employeeId || nextEmployeeId_();
+  employee.id = employee.employeeId;
   employee.roleCategories = normalizeRoleCategories_(employee.roleCategories).join(", ");
   employee.templateId = templateIdForEmployee_(employee);
   appendRow_("Users", { id: userId, email: body.email, name: body.firstName + " " + body.lastName, role: accountRoleForCategories_(employee.roleCategories), status: "active", password: "Password123!", token: "" });
-  appendRow_("Employees", employee);
+  appendRow_("Employees", employeeForSheet_(employee));
   audit_(user, "Employee created", "Employee Master", employee.employeeId, "", employee.email);
   return employee;
 }
@@ -299,11 +300,18 @@ function updateEmployee_(user, id, body) {
   if (body.roleCategories !== undefined) body.roleCategories = normalizeRoleCategories_(body.roleCategories).join(", ");
   const employee = Object.assign(readById_("Employees", id), body);
   employee.employeeId = employee.employeeId || nextEmployeeId_();
+  employee.id = employee.employeeId;
   employee.templateId = templateIdForEmployee_(employee);
-  updateRow_("Employees", id, employee);
+  updateRow_("Employees", id, employeeForSheet_(employee));
   updateLinkedEmployeeUser_(employee);
   audit_(user, "Employee updated", "Employee Master", employee.employeeId, "", JSON.stringify(body));
   return employee;
+}
+
+function employeeForSheet_(employee) {
+  const row = Object.assign({}, employee);
+  delete row.id;
+  return row;
 }
 
 function normalizeRoleCategories_(value) {
@@ -522,6 +530,39 @@ function setHeaders_(sheetName, headers) {
   if (sheet.getLastRow() === 0) sheet.appendRow(headers);
 }
 
+function migrateEmployeeBackendIdColumn_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const employeeSheet = ss.getSheetByName("Employees");
+  if (!employeeSheet || employeeSheet.getLastRow() === 0) return;
+  const headers = employeeSheet.getRange(1, 1, 1, employeeSheet.getLastColumn()).getValues()[0];
+  const idIndex = headers.indexOf("id");
+  const employeeIdIndex = headers.indexOf("employeeId");
+  if (idIndex === -1 || employeeIdIndex === -1) return;
+
+  const values = employeeSheet.getDataRange().getValues();
+  const idMap = {};
+  for (let r = 1; r < values.length; r++) {
+    const oldId = values[r][idIndex];
+    const employeeId = values[r][employeeIdIndex];
+    if (oldId && employeeId) idMap[oldId] = employeeId;
+  }
+  migrateAppraisalEmployeeIds_(idMap);
+  employeeSheet.deleteColumn(idIndex + 1);
+}
+
+function migrateAppraisalEmployeeIds_(idMap) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Appraisals");
+  if (!sheet || sheet.getLastRow() < 2) return;
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0];
+  const employeeIdIndex = headers.indexOf("employeeId");
+  if (employeeIdIndex === -1) return;
+  for (let r = 1; r < values.length; r++) {
+    const current = values[r][employeeIdIndex];
+    if (idMap[current]) sheet.getRange(r + 1, employeeIdIndex + 1).setValue(idMap[current]);
+  }
+}
+
 function readRows_(sheetName) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   const values = sheet.getDataRange().getValues();
@@ -530,6 +571,7 @@ function readRows_(sheetName) {
   return values.slice(1).filter(row => row.some(cell => cell !== "")).map(row => {
     const obj = {};
     headers.forEach((header, i) => obj[header] = row[i]);
+    if (sheetName === "Employees") obj.id = obj.employeeId;
     return obj;
   });
 }
