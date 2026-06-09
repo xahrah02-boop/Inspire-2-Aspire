@@ -329,7 +329,7 @@ async function handleApi(req, res, url) {
     if (url.pathname === "/api/employees" && req.method === "POST") {
       assertCan(user.role, "manageEmployees");
       const body = await readBody(req);
-      if (!body.department || !body.lineManagerUserId) return sendJson(res, 422, { error: "Employee must have a department and line manager." });
+      if (!body.department) return sendJson(res, 422, { error: "Employee must have a department." });
       const roleCategories = normalizeRoleCategories(body.roleCategories);
       const employeeUser = {
         id: `u-emp-${Date.now()}`,

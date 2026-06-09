@@ -1232,6 +1232,7 @@ function userName(id) {
 }
 
 function lineManagerOptions(selected = "", department = "all") {
+  const blankOption = `<option value="" ${!selected ? "selected" : ""}>Nil / no assignee yet</option>`;
   const employeeOptions = state.data.employees
     .filter(employee => employee.userId && (department === "all" || employee.department === department))
     .map(employee => ({
@@ -1244,8 +1245,8 @@ function lineManagerOptions(selected = "", department = "all") {
     ? usersByRole("LINE_MANAGER").filter(user => selected === user.id).map(user => ({ id: user.id, name: user.name, meta: "current assignment" }))
     : [];
   const options = [...employeeOptions, ...legacyOptions];
-  if (!options.length) return `<option value="">No registered employees in selected department</option>`;
-  return options.map(option => `<option value="${escapeHtml(option.id)}" ${selected === option.id ? "selected" : ""}>${escapeHtml(`${option.name} - ${option.meta}`)}</option>`).join("");
+  if (!options.length) return `${blankOption}<option value="" disabled>No registered employees in selected department</option>`;
+  return `${blankOption}${options.map(option => `<option value="${escapeHtml(option.id)}" ${selected === option.id ? "selected" : ""}>${escapeHtml(`${option.name} - ${option.meta}`)}</option>`).join("")}`;
 }
 
 function refreshLineManagerOptions(form) {
