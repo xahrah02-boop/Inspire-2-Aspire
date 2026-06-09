@@ -263,10 +263,10 @@ async function handleApi(req, res, url) {
 
     if (url.pathname.startsWith("/api/departments/") && req.method === "PATCH") {
       assertCan(user.role, "manageEmployees");
-      const id = url.pathname.split("/").pop();
+      const id = decodeURIComponent(url.pathname.split("/").pop());
       const body = await readBody(req);
       if (body.action === "delete") {
-        const index = data.departments.findIndex(item => item.id === id || item.name === id);
+        const index = data.departments.findIndex(item => item.id === id || item.name === id || item.name === body.name);
         if (index === -1) return sendJson(res, 404, { error: "Department not found." });
         const [department] = data.departments.splice(index, 1);
         audit(user, "Department deleted", "Department Master", department.name, JSON.stringify(department), "");

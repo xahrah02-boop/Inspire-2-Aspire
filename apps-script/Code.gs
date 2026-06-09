@@ -232,8 +232,9 @@ function updateDepartment_(user, id, body) {
 
 function deleteDepartment_(user, id) {
   requireRole_(user, ["HR_ADMIN"]);
-  const department = readById_("Departments", id);
-  deleteRow_("Departments", id);
+  id = decodeURIComponent(id);
+  const department = readByIdOrName_("Departments", id);
+  deleteRowByIdOrName_("Departments", id);
   audit_(user, "Department deleted", "Department Master", department.name, JSON.stringify(department), "");
   return { ok: true, id: id };
 }
@@ -539,6 +540,14 @@ function readById_(sheetName, id) {
   return row;
 }
 
+function readByIdOrName_(sheetName, key) {
+  const row = readRows_(sheetName).find(function(item) {
+    return item.id === key || item.name === key;
+  });
+  if (!row) throw new Error(sheetName + " record not found.");
+  return row;
+}
+
 function appendRow_(sheetName, obj) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -563,6 +572,23 @@ function deleteRow_(sheetName, id) {
   const values = sheet.getDataRange().getValues();
   for (let r = 1; r < values.length; r++) {
     if (values[r][0] === id) {
+      sheet.deleteRow(r + 1);
+      return;
+    }
+  }
+  throw new Error(sheetName + " record not found.");
+}
+
+function deleteRowByIdOrName_(sheetName, key) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0];
+  const idIndex = headers.indexOf("id");
+  const nameIndex = headers.indexOf("name");
+  for (let r = 1; r < values.length; r++) {
+    const matchesId = idIndex !== -1 && values[r][idIndex] === key;
+    const matchesName = nameIndex !== -1 && values[r][nameIndex] === key;
+    if (matchesId || matchesName) {
       sheet.deleteRow(r + 1);
       return;
     }

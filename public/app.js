@@ -235,9 +235,9 @@ function departmentRecordSection() {
       <h2>Department master records</h2>
       ${canManage() ? `<button type="button" data-create-department>Add Department</button>` : ""}
     </div>
-    ${departmentDropdown()}
-    ${canManage() ? departmentDeleteActions() : ""}
     ${departmentTable()}
+    ${canManage() ? departmentDeleteActions() : ""}
+    ${departmentDropdown()}
   </section>`;
 }
 
@@ -1686,7 +1686,8 @@ async function deleteDepartmentRecord(departmentId) {
   const confirmed = window.confirm(`Delete department "${department.name}"?`);
   if (!confirmed) return;
   try {
-    await api(`/api/departments/${department.id || department.name}`, { method: "PATCH", body: { action: "delete" } });
+    const departmentKey = encodeURIComponent(department.id || department.name);
+    await api(`/api/departments/${departmentKey}`, { method: "PATCH", body: { action: "delete", name: department.name } });
     state.data = await api("/api/bootstrap");
     state.data.departments = state.data.departments.filter(item => (item.id || item.name) !== (department.id || department.name));
     toast("Department deleted");
