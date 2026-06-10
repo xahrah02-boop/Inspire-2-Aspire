@@ -75,8 +75,9 @@ function seedIfEmpty_() {
   appendRow_("Users", { id: "u-hr", email: "hr.admin@company.test", name: "HR Admin", role: "HR_ADMIN", status: "active", password: "Password123!", token: "" });
   appendRow_("Users", { id: "u-mgr-1", email: "grace.manager@company.test", name: "Grace Okafor", role: "LINE_MANAGER", status: "active", password: "Password123!", token: "" });
   appendRow_("Users", { id: "u-emp-1", email: "john.operator@company.test", name: "John Okorie", role: "EMPLOYEE", status: "active", password: "Password123!", token: "" });
-  appendRow_("Departments", { id: "dept-1", name: "Production", managerialRole: "emp-1", supervisoryRole: "emp-1", status: "active" });
+  appendRow_("Departments", { id: "dept-1", name: "Production", managerialRole: "MGR-001", supervisoryRole: "EMP-0001", status: "active" });
   appendRow_("JobRoles", { id: "role-1", title: "Production Operator", department: "Production", status: "active" });
+  appendRow_("Employees", { employeeId: "MGR-001", firstName: "Grace", lastName: "Okafor", email: "grace.manager@company.test", phone: "", department: "Production", jobTitle: "Production Manager", lineManagerUserId: "", status: "confirmed", userAccountStatus: "active", templateId: "tpl-prod", roleCategories: "staff, managerial", userId: "u-mgr-1", workLocation: "Plant A", emergencyContact: "", notes: "" });
   appendRow_("Employees", { employeeId: "EMP-0001", firstName: "John", lastName: "Okorie", email: "john.operator@company.test", phone: "", department: "Production", jobTitle: "Production Operator", lineManagerUserId: "u-mgr-1", status: "confirmed", userAccountStatus: "active", templateId: "tpl-prod", roleCategories: "staff", userId: "u-emp-1", workLocation: "Plant A", emergencyContact: "", notes: "" });
   appendRow_("KpiTemplates", { id: "tpl-prod", name: "Production Operator KPI Template", department: "Production", jobRole: "Production Operator", status: "active", itemsJson: JSON.stringify([{ id: "tpl-prod-1", title: "Output achievement", weight: 25 }, { id: "tpl-prod-2", title: "Quality of work", weight: 20 }, { id: "tpl-prod-3", title: "Attendance", weight: 55 }]) });
   appendRow_("AppraisalPeriods", { id: "period-1", name: "Current Annual Review", startDate: "2026-01-01", endDate: "2026-12-31", type: "annual", status: "open", departmentsJson: JSON.stringify(["Production"]) });
@@ -171,6 +172,7 @@ function bootstrap_(user) {
     templates: readRows_("KpiTemplates").map(parseTemplate_),
     periods: readRows_("AppraisalPeriods").map(parsePeriod_),
     appraisals,
+    userList: user.role === "HR_ADMIN" ? readRows_("Users").map(publicUser_) : [],
     reports: reports_(),
     guides: [],
     auditLogs: user.role === "HR_ADMIN" ? readRows_("AuditLogs") : []

@@ -90,6 +90,39 @@ function employeeRecordKey(employee) {
   return employee?.id || employee?.employeeId || employee?.userId || employee?.email || "";
 }
 
+function employeeLookupKeys(employee) {
+  if (!employee) return [];
+  const fullName = `${employee.firstName || ""} ${employee.lastName || ""}`.trim();
+  const keys = [employee.id, employee.employeeId, employee.userId, employee.email, fullName, employeeRecordKey(employee)].filter(Boolean).map(String);
+  const employeeId = String(employee?.employeeId || employee?.id || "");
+  const numeric = employeeId.match(/(\d+)$/)?.[1];
+  if (numeric) {
+    const compactNumber = String(Number(numeric));
+    const isManagerRecord = /^MGR-/i.test(employeeId) || employeeRoleCategories(employee).includes("managerial");
+    if (isManagerRecord) {
+      keys.push(
+        `emp-mgr-${compactNumber}`,
+        `emp-mgr-${numeric}`,
+        `MGR-${compactNumber}`,
+        `MGR-${numeric}`,
+        `MGR-${numeric.padStart(3, "0")}`,
+        `MGR-${numeric.padStart(4, "0")}`
+      );
+    } else {
+      keys.push(
+        `emp-${compactNumber}`,
+        `emp-${numeric}`,
+        `emp-${numeric.padStart(3, "0")}`,
+        `EMP-${compactNumber}`,
+        `EMP-${numeric}`,
+        `EMP-${numeric.padStart(3, "0")}`,
+        `EMP-${numeric.padStart(4, "0")}`
+      );
+    }
+  }
+  return [...new Set(keys.flatMap(key => [key, key.toLowerCase(), key.toUpperCase()]))];
+}
+
 function bindGlobalHandlers() {
   if (globalHandlersBound) return;
   globalHandlersBound = true;
@@ -690,8 +723,8 @@ function departmentTable() {
     <th>Department name</th><th>Managerial role holder</th><th>Supervisory role holder</th><th>Status</th>${canManage() ? "<th>Action</th>" : ""}
   </tr></thead><tbody>${state.data.departments.map(dept => `<tr>
     <td>${escapeHtml(dept.name)}</td>
-    <td>${escapeHtml(employeeName(dept.managerialRole))}</td>
-    <td>${escapeHtml(employeeName(dept.supervisoryRole))}</td>
+    <td>${escapeHtml(departmentAssigneeName(dept.managerialRole, dept.name, "managerial"))}</td>
+    <td>${escapeHtml(departmentAssigneeName(dept.supervisoryRole, dept.name, "supervisory"))}</td>
     <td><span class="badge ${escapeHtml(dept.status || "active")}">${escapeHtml(dept.status || "active")}</span></td>
     ${canManage() ? `<td><button class="secondary small-button" type="button" data-edit-department="${escapeHtml(dept.id)}">Edit</button><button class="danger small-button" type="button" data-delete-department="${escapeHtml(dept.id || dept.name)}">Delete</button></td>` : ""}
   </tr>`).join("")}</tbody></table></div>`;
@@ -769,8 +802,8 @@ function departmentDetailModal(dept) {
         <th>Department name</th><th>Managerial role holder</th><th>Supervisory role holder</th><th>Status</th><th>Action</th>
       </tr></thead><tbody><tr>
         <td>${escapeHtml(dept.name)}</td>
-        <td>${escapeHtml(employeeName(dept.managerialRole))}</td>
-        <td>${escapeHtml(employeeName(dept.supervisoryRole))}</td>
+        <td>${escapeHtml(departmentAssigneeName(dept.managerialRole, dept.name, "managerial"))}</td>
+        <td>${escapeHtml(departmentAssigneeName(dept.supervisoryRole, dept.name, "supervisory"))}</td>
         <td><span class="badge ${escapeHtml(dept.status)}">${escapeHtml(dept.status)}</span></td>
         <td>${canManage() ? `<button type="button" data-edit-department-detail="${escapeHtml(dept.id)}">Edit</button>` : ""}</td>
       </tr></tbody></table></div>
@@ -942,14 +975,20 @@ function filteredManagerAppraisals() {
 function managerAttachedEmployees() {
   if (state.user.role !== "LINE_MANAGER") return [];
   const managerRecord = state.data.employees.find(employee => employee.userId === state.user.id);
-  const managerKeys = [state.user.id, managerRecord?.id, managerRecord?.employeeId].filter(Boolean);
+  const managerKeys = [state.user.id, ...employeeLookupKeys(managerRecord)].filter(Boolean);
   const staffRows = state.data.employees.filter(employee => employee.userId !== state.user.id);
   const explicitRows = staffRows.filter(employee =>
-    managerKeys.includes(employee.lineManagerUserId)
+    managerKeys.includes(String(employee.lineManagerUserId || "")) ||
+    managerKeys.includes(String(employee.lineManagerUserId || "").toLowerCase()) ||
+    managerKeys.includes(String(employee.lineManagerUserId || "").toUpperCase())
   );
   if (explicitRows.length) return explicitRows;
   const managedDepartments = new Set(state.data.departments
-    .filter(department => managerKeys.includes(department.head) || managerKeys.includes(department.managerialRole) || managerKeys.includes(department.supervisoryRole))
+    .filter(department => [department.head, department.managerialRole, department.supervisoryRole].some(value =>
+      managerKeys.includes(String(value || "")) ||
+      managerKeys.includes(String(value || "").toLowerCase()) ||
+      managerKeys.includes(String(value || "").toUpperCase())
+    ))
     .map(department => department.name));
   const departmentRows = staffRows.filter(employee => managedDepartments.has(employee.department));
   return departmentRows.length ? departmentRows : staffRows;
@@ -962,9 +1001,7 @@ function managerAssignedAppraisals() {
   const addedEmployees = new Set();
   for (const appraisal of state.data.appraisals) {
     const employee = appraisal.employee || state.data.employees.find(item =>
-      employeeRecordKey(item) === appraisal.employeeId ||
-      item.id === appraisal.employeeId ||
-      item.employeeId === appraisal.employeeId
+      employeeLookupKeys(item).includes(String(appraisal.employeeId))
     );
     if (!employee || employee.userId === state.user.id) continue;
     const key = employeeRecordKey(employee) || appraisal.employeeId;
@@ -975,11 +1012,8 @@ function managerAssignedAppraisals() {
     const key = employeeRecordKey(employee);
     if (addedEmployees.has(key)) continue;
     const existing = state.data.appraisals.find(appraisal =>
-      appraisal.employeeId === key ||
-      appraisal.employeeId === employee.id ||
-      appraisal.employeeId === employee.employeeId ||
-      appraisal.employee?.id === key ||
-      appraisal.employee?.employeeId === key
+      employeeLookupKeys(employee).includes(String(appraisal.employeeId)) ||
+      employeeLookupKeys(appraisal.employee).includes(key)
     );
     if (existing) {
       rows.push({ ...existing, employee: existing.employee || employee });
@@ -1543,8 +1577,34 @@ function periodName(id) {
 
 function employeeName(id) {
   if (!id) return "Not assigned";
-  const employee = state.data.employees.find(item => item.id === id);
-  return employee ? `${employee.firstName} ${employee.lastName}` : id;
+  const key = String(id).trim();
+  const employee = state.data.employees.find(item => employeeLookupKeys(item).includes(key) || employeeLookupKeys(item).includes(key.toLowerCase()) || employeeLookupKeys(item).includes(key.toUpperCase()));
+  if (employee) return `${employee.firstName} ${employee.lastName}`;
+  const managerNumber = key.match(/^emp-mgr-(\d+)$/i)?.[1];
+  const mappedUserId = managerNumber ? `u-mgr-${Number(managerNumber)}` : "";
+  const user = (state.data.userList || []).find(item =>
+    [item.id, item.email, item.name].filter(Boolean).map(String).some(value =>
+      value === key || value === mappedUserId || value.toLowerCase() === key.toLowerCase()
+    )
+  );
+  if (user) return user.name;
+  return key.includes(" ") ? key : "Employee not found";
+}
+
+function departmentAssigneeName(value, departmentName, roleCategory) {
+  const resolved = employeeName(value);
+  if (resolved && !looksLikeRawId(resolved) && resolved !== "Employee not found") return resolved;
+  const departmentEmployees = state.data.employees.filter(employee => employee.department === departmentName);
+  const categoryMatch = departmentEmployees.find(employee => employeeRoleCategories(employee).includes(roleCategory));
+  if (categoryMatch) return `${categoryMatch.firstName} ${categoryMatch.lastName}`;
+  const titleWord = roleCategory === "managerial" ? "manager" : "supervisor";
+  const titleMatch = departmentEmployees.find(employee => String(employee.jobTitle || "").toLowerCase().includes(titleWord));
+  if (titleMatch) return `${titleMatch.firstName} ${titleMatch.lastName}`;
+  return value ? "Employee not found" : "Not assigned";
+}
+
+function looksLikeRawId(value) {
+  return /^(emp|emp-mgr|mgr|u-mgr|u-emp|user|dept|role)[-_]?\w+/i.test(String(value || ""));
 }
 
 function attachHandlers() {
