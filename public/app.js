@@ -1436,7 +1436,7 @@ function employeeSelect(name, label, selected = "", category = "all", department
   });
   return `<div class="field"><label>${label}</label><select name="${name}">
     <option value="">Not assigned</option>
-    ${rows.map(employee => `<option value="${escapeHtml(employeeRecordKey(employee))}" ${selected === employeeRecordKey(employee) ? "selected" : ""}>${escapeHtml(`${employee.firstName} ${employee.lastName} - ${employee.employeeId} - ${employee.department}`)}</option>`).join("")}
+    ${rows.map(employee => `<option value="${escapeHtml(employeeRecordKey(employee))}" ${selected === employeeRecordKey(employee) ? "selected" : ""}>${escapeHtml(`${employee.firstName} ${employee.lastName} - ${employee.department}`)}</option>`).join("")}
   </select></div>`;
 }
 
@@ -1506,7 +1506,7 @@ function lineManagerOptions(selected = "", department = "all") {
     .map(employee => ({
       id: employee.userId,
       name: `${employee.firstName} ${employee.lastName}`,
-      meta: `${employee.employeeId} - ${employee.department}`
+      meta: employee.department
     }));
   const selectedIsVisible = employeeOptions.some(option => option.id === selected);
   const legacyOptions = selected && !selectedIsVisible
@@ -1578,17 +1578,22 @@ function periodName(id) {
 function employeeName(id) {
   if (!id) return "Not assigned";
   const key = String(id).trim();
-  const employee = state.data.employees.find(item => employeeLookupKeys(item).includes(key) || employeeLookupKeys(item).includes(key.toLowerCase()) || employeeLookupKeys(item).includes(key.toUpperCase()));
+  const keyParts = key.split(/\s+-\s+|[,|]/).map(part => part.trim()).filter(Boolean);
+  const possibleKeys = [key, key.toLowerCase(), key.toUpperCase(), ...keyParts, ...keyParts.map(part => part.toLowerCase()), ...keyParts.map(part => part.toUpperCase())];
+  const employee = state.data.employees.find(item => {
+    const lookupKeys = employeeLookupKeys(item);
+    return possibleKeys.some(possibleKey => lookupKeys.includes(possibleKey));
+  });
   if (employee) return `${employee.firstName} ${employee.lastName}`;
   const managerNumber = key.match(/^emp-mgr-(\d+)$/i)?.[1];
   const mappedUserId = managerNumber ? `u-mgr-${Number(managerNumber)}` : "";
   const user = (state.data.userList || []).find(item =>
     [item.id, item.email, item.name].filter(Boolean).map(String).some(value =>
-      value === key || value === mappedUserId || value.toLowerCase() === key.toLowerCase()
+      possibleKeys.includes(value) || possibleKeys.includes(value.toLowerCase()) || value === mappedUserId
     )
   );
   if (user) return user.name;
-  return key.includes(" ") ? key : "Employee not found";
+  return looksLikeRawId(key) || /\b[A-Z]{2,5}-?\d+\b/i.test(key) ? "Employee not found" : key;
 }
 
 function departmentAssigneeName(value, departmentName, roleCategory) {
@@ -1604,7 +1609,7 @@ function departmentAssigneeName(value, departmentName, roleCategory) {
 }
 
 function looksLikeRawId(value) {
-  return /^(emp|emp-mgr|mgr|u-mgr|u-emp|user|dept|role)[-_]?\w+/i.test(String(value || ""));
+  return /\b(emp|emp-mgr|mgr|u-mgr|u-emp|user|dept|role)[-_]?\w+/i.test(String(value || ""));
 }
 
 function attachHandlers() {
