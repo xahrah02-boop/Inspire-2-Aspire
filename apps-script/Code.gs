@@ -165,7 +165,7 @@ function bootstrap_(user) {
   return {
     user: publicUser_(user),
     dashboard: dashboardFor_(user),
-    departments: readRows_("Departments"),
+    departments: readRows_("Departments").map(decorateDepartment_),
     jobRoles: readRows_("JobRoles"),
     employees,
     kpiMaster: visibleKpis,
@@ -177,6 +177,64 @@ function bootstrap_(user) {
     guides: [],
     auditLogs: user.role === "HR_ADMIN" ? readRows_("AuditLogs") : []
   };
+}
+
+function decorateDepartment_(department) {
+  return Object.assign({}, department, {
+    managerialRoleName: assigneeNameForDepartment_(department.managerialRole, department.name, "managerial"),
+    supervisoryRoleName: assigneeNameForDepartment_(department.supervisoryRole, department.name, "supervisory")
+  });
+}
+
+function assigneeNameForDepartment_(value, departmentName, roleCategory) {
+  if (!value) return "Not assigned";
+  const key = String(value).trim();
+  const employees = readRows_("Employees");
+  const employee = employees.find(function(item) {
+    const keys = employeeLookupKeys_(item);
+    return keys.indexOf(key) !== -1 || keys.indexOf(key.toLowerCase()) !== -1 || keys.indexOf(key.toUpperCase()) !== -1;
+  });
+  if (employee) return employee.firstName + " " + employee.lastName;
+  const user = readRows_("Users").find(function(item) {
+    return item.id === key || item.email === key || item.name === key;
+  });
+  if (user) return user.name;
+  const departmentEmployees = employees.filter(function(item) { return item.department === departmentName; });
+  const categoryMatch = departmentEmployees.find(function(item) {
+    return normalizeRoleCategories_(item.roleCategories).indexOf(roleCategory) !== -1;
+  });
+  if (categoryMatch) return categoryMatch.firstName + " " + categoryMatch.lastName;
+  const titleWord = roleCategory === "managerial" ? "manager" : "supervisor";
+  const titleMatch = departmentEmployees.find(function(item) {
+    return String(item.jobTitle || "").toLowerCase().indexOf(titleWord) !== -1;
+  });
+  if (titleMatch) return titleMatch.firstName + " " + titleMatch.lastName;
+  return "Employee not found";
+}
+
+function employeeLookupKeys_(employee) {
+  if (!employee) return [];
+  const fullName = String((employee.firstName || "") + " " + (employee.lastName || "")).trim();
+  let keys = [employee.id, employee.employeeId, employee.userId, employee.email, fullName].filter(Boolean).map(String);
+  const employeeId = String(employee.employeeId || employee.id || "");
+  const match = employeeId.match(/(\d+)$/);
+  if (match) {
+    const numeric = match[1];
+    const compactNumber = String(Number(numeric));
+    const isManagerRecord = /^MGR-/i.test(employeeId) || normalizeRoleCategories_(employee.roleCategories).indexOf("managerial") !== -1;
+    if (isManagerRecord) {
+      keys = keys.concat(["emp-mgr-" + compactNumber, "emp-mgr-" + numeric, "MGR-" + compactNumber, "MGR-" + numeric, "MGR-" + numeric.padStart(3, "0"), "MGR-" + numeric.padStart(4, "0")]);
+    } else {
+      keys = keys.concat(["emp-" + compactNumber, "emp-" + numeric, "emp-" + numeric.padStart(3, "0"), "EMP-" + compactNumber, "EMP-" + numeric, "EMP-" + numeric.padStart(3, "0"), "EMP-" + numeric.padStart(4, "0")]);
+    }
+  }
+  const expanded = [];
+  keys.forEach(function(keyValue) {
+    expanded.push(keyValue);
+    expanded.push(String(keyValue).toLowerCase());
+    expanded.push(String(keyValue).toUpperCase());
+  });
+  return expanded.filter(function(keyValue, index) { return expanded.indexOf(keyValue) === index; });
 }
 
 function kpiMatchesEmployee_(kpi, employee) {

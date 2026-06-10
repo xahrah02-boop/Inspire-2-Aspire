@@ -561,7 +561,7 @@ function bootstrapPayload(user) {
   return {
     user: publicUser(user),
     dashboard: dashboardFor(user),
-    departments: data.departments,
+    departments: data.departments.map(decorateDepartment),
     jobRoles: data.jobRoles,
     employees,
     kpiMaster: [Roles.SUPER_ADMIN, Roles.HR_ADMIN].includes(user.role) ? data.kpiMaster : employeeKpis,
@@ -573,6 +573,48 @@ function bootstrapPayload(user) {
     guides: data.guides,
     auditLogs: [Roles.SUPER_ADMIN, Roles.HR_ADMIN].includes(user.role) ? data.auditLogs : []
   };
+}
+
+function decorateDepartment(department) {
+  return {
+    ...department,
+    managerialRoleName: assigneeNameForDepartment(department.managerialRole, department.name, "managerial"),
+    supervisoryRoleName: assigneeNameForDepartment(department.supervisoryRole, department.name, "supervisory")
+  };
+}
+
+function assigneeNameForDepartment(value, departmentName, roleCategory) {
+  if (!value) return "Not assigned";
+  const key = String(value).trim();
+  const employee = data.employees.find(item => employeeLookupKeys(item).includes(key) || employeeLookupKeys(item).includes(key.toLowerCase()) || employeeLookupKeys(item).includes(key.toUpperCase()));
+  if (employee) return `${employee.firstName} ${employee.lastName}`;
+  const user = data.users.find(item => item.id === key || item.email === key || item.name === key);
+  if (user) return user.name;
+  const employeesInDepartment = data.employees.filter(item => item.department === departmentName);
+  const categoryMatch = employeesInDepartment.find(item => normalizeRoleCategories(item.roleCategories).includes(roleCategory));
+  if (categoryMatch) return `${categoryMatch.firstName} ${categoryMatch.lastName}`;
+  const titleWord = roleCategory === "managerial" ? "manager" : "supervisor";
+  const titleMatch = employeesInDepartment.find(item => String(item.jobTitle || "").toLowerCase().includes(titleWord));
+  if (titleMatch) return `${titleMatch.firstName} ${titleMatch.lastName}`;
+  return "Employee not found";
+}
+
+function employeeLookupKeys(employee) {
+  if (!employee) return [];
+  const fullName = `${employee.firstName || ""} ${employee.lastName || ""}`.trim();
+  const keys = [employee.id, employee.employeeId, employee.userId, employee.email, fullName].filter(Boolean).map(String);
+  const employeeId = String(employee.employeeId || employee.id || "");
+  const numeric = employeeId.match(/(\d+)$/)?.[1];
+  if (numeric) {
+    const compactNumber = String(Number(numeric));
+    const isManagerRecord = /^MGR-/i.test(employeeId) || normalizeRoleCategories(employee.roleCategories).includes("managerial");
+    if (isManagerRecord) {
+      keys.push(`emp-mgr-${compactNumber}`, `emp-mgr-${numeric}`, `MGR-${compactNumber}`, `MGR-${numeric}`, `MGR-${numeric.padStart(3, "0")}`, `MGR-${numeric.padStart(4, "0")}`);
+    } else {
+      keys.push(`emp-${compactNumber}`, `emp-${numeric}`, `emp-${numeric.padStart(3, "0")}`, `EMP-${compactNumber}`, `EMP-${numeric}`, `EMP-${numeric.padStart(3, "0")}`, `EMP-${numeric.padStart(4, "0")}`);
+    }
+  }
+  return [...new Set(keys.flatMap(key => [key, key.toLowerCase(), key.toUpperCase()]))];
 }
 
 function kpiMatchesEmployee(kpi, employee) {

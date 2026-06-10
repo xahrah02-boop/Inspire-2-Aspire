@@ -723,8 +723,8 @@ function departmentTable() {
     <th>Department name</th><th>Managerial role holder</th><th>Supervisory role holder</th><th>Status</th>${canManage() ? "<th>Action</th>" : ""}
   </tr></thead><tbody>${state.data.departments.map(dept => `<tr>
     <td>${escapeHtml(dept.name)}</td>
-    <td>${escapeHtml(departmentAssigneeName(dept.managerialRole, dept.name, "managerial"))}</td>
-    <td>${escapeHtml(departmentAssigneeName(dept.supervisoryRole, dept.name, "supervisory"))}</td>
+    <td>${escapeHtml(dept.managerialRoleName || departmentAssigneeName(dept.managerialRole, dept.name, "managerial"))}</td>
+    <td>${escapeHtml(dept.supervisoryRoleName || departmentAssigneeName(dept.supervisoryRole, dept.name, "supervisory"))}</td>
     <td><span class="badge ${escapeHtml(dept.status || "active")}">${escapeHtml(dept.status || "active")}</span></td>
     ${canManage() ? `<td><button class="secondary small-button" type="button" data-edit-department="${escapeHtml(dept.id)}">Edit</button><button class="danger small-button" type="button" data-delete-department="${escapeHtml(dept.id || dept.name)}">Delete</button></td>` : ""}
   </tr>`).join("")}</tbody></table></div>`;
@@ -802,8 +802,8 @@ function departmentDetailModal(dept) {
         <th>Department name</th><th>Managerial role holder</th><th>Supervisory role holder</th><th>Status</th><th>Action</th>
       </tr></thead><tbody><tr>
         <td>${escapeHtml(dept.name)}</td>
-        <td>${escapeHtml(departmentAssigneeName(dept.managerialRole, dept.name, "managerial"))}</td>
-        <td>${escapeHtml(departmentAssigneeName(dept.supervisoryRole, dept.name, "supervisory"))}</td>
+        <td>${escapeHtml(dept.managerialRoleName || departmentAssigneeName(dept.managerialRole, dept.name, "managerial"))}</td>
+        <td>${escapeHtml(dept.supervisoryRoleName || departmentAssigneeName(dept.supervisoryRole, dept.name, "supervisory"))}</td>
         <td><span class="badge ${escapeHtml(dept.status)}">${escapeHtml(dept.status)}</span></td>
         <td>${canManage() ? `<button type="button" data-edit-department-detail="${escapeHtml(dept.id)}">Edit</button>` : ""}</td>
       </tr></tbody></table></div>
