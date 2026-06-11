@@ -575,13 +575,20 @@ function renderAssignedStaff() {
 
 function assignedStaffTable(rows) {
   return `<div class="table-wrap"><table><thead><tr>
-    <th>Employee</th><th>Department</th><th>Designation</th><th>Status</th>
-  </tr></thead><tbody>${rows.map(employee => `<tr>
-    <td>${escapeHtml(`${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.name || "Employee")}</td>
-    <td>${escapeHtml(employee.department || "")}</td>
-    <td>${escapeHtml(employee.jobTitle || "")}</td>
-    <td><span class="badge ${escapeHtml(employee.status || "active")}">${escapeHtml(employee.status || "active")}</span></td>
-  </tr>`).join("")}</tbody></table></div>`;
+    <th>Employee</th><th>Department</th><th>Designation</th><th>Assigned KPIs</th><th>Score status</th><th>Action</th>
+  </tr></thead><tbody>${rows.map(employee => {
+    const appraisal = managerAppraisalForEmployee(employeeRecordKey(employee));
+    const scores = appraisal?.scores || employeeAssignedKpiRows(employee);
+    const kpiTitles = scores.length ? scores.map(score => score.title).join(", ") : "No KPI assigned";
+    return `<tr>
+      <td>${escapeHtml(`${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.name || "Employee")}</td>
+      <td>${escapeHtml(employee.department || "")}</td>
+      <td>${escapeHtml(employee.jobTitle || "")}</td>
+      <td><strong>${escapeHtml(scores.length)}</strong><div class="hint">${escapeHtml(kpiTitles)}</div></td>
+      <td><span class="badge ${escapeHtml(appraisal?.status || "Not Started")}">${escapeHtml(appraisal?.status || "Not Started")}</span></td>
+      <td>${appraisal ? `<button type="button" data-open-manager-review="${escapeHtml(appraisal.id)}">Open Score Sheet</button>` : "<span class='hint'>No score sheet</span>"}</td>
+    </tr>`;
+  }).join("")}</tbody></table></div>`;
 }
 
 function managerAssignedEmployeesTable(rows) {
@@ -600,7 +607,8 @@ function managerAppraisalForEmployee(employeeId) {
   return managerAssignedAppraisals().find(appraisal =>
     appraisal.employeeId === employeeId ||
     appraisal.employee?.id === employeeId ||
-    appraisal.employee?.employeeId === employeeId
+    appraisal.employee?.employeeId === employeeId ||
+    employeeLookupKeys(appraisal.employee).includes(String(employeeId || ""))
   );
 }
 
@@ -1838,7 +1846,7 @@ function attachHandlers() {
   });
   document.querySelectorAll("[data-submit-appraisal],[data-draft-appraisal]").forEach(button => button.addEventListener("click", async () => {
     const id = button.dataset.submitAppraisal || button.dataset.draftAppraisal;
-    const appraisal = state.data.appraisals.find(a => a.id === id);
+    const appraisal = state.data.appraisals.find(a => a.id === id) || managerAssignedAppraisals().find(a => a.id === id);
     await api(`/api/appraisals/${id}`, { method: "POST", body: { scores: collectManagerScores(appraisal), submit: Boolean(button.dataset.submitAppraisal) } });
     state.data = await api("/api/bootstrap");
     toast(button.dataset.submitAppraisal ? "Appraisal submitted" : "Draft saved");
@@ -2172,7 +2180,7 @@ function openModal(html) {
 function bindAppraisalButtons(root = document) {
   root?.querySelectorAll("[data-submit-appraisal],[data-draft-appraisal]").forEach(button => button.addEventListener("click", async () => {
     const id = button.dataset.submitAppraisal || button.dataset.draftAppraisal;
-    const appraisal = state.data.appraisals.find(a => a.id === id);
+    const appraisal = state.data.appraisals.find(a => a.id === id) || managerAssignedAppraisals().find(a => a.id === id);
     await api(`/api/appraisals/${id}`, { method: "POST", body: { scores: collectManagerScores(appraisal), submit: Boolean(button.dataset.submitAppraisal) } });
     state.data = await api("/api/bootstrap");
     document.querySelector(".modal-backdrop")?.remove();
@@ -2200,6 +2208,7 @@ function formObject(form) {
 }
 
 function collectManagerScores(appraisal) {
+  if (!appraisal) return [];
   const form = document.querySelector(`[data-manager-score-form="${CSS.escape(appraisal.id)}"]`);
   if (!form) return appraisal.scores;
   return appraisal.scores.map(score => {
