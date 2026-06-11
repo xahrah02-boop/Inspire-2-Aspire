@@ -473,16 +473,16 @@ async function handleApi(req, res, url) {
       let appraisal = data.appraisals.find(a => a.id === id);
       if (!appraisal && id.startsWith("queue-")) {
         const [, employeeId, periodId] = id.match(/^queue-(.+)-(period-.+)$/) || [];
-        const employee = data.employees.find(e => e.id === employeeId);
+        const employee = data.employees.find(e => employeeLookupKeys(e).includes(String(employeeId || "")));
         if (employee) {
           appraisal = { ...makeEmptyAppraisal(employee, periodId), id: `app-${Date.now()}` };
           data.appraisals.unshift(appraisal);
         }
       }
       if (!appraisal) return sendJson(res, 404, { error: "Appraisal not found." });
-      const employee = data.employees.find(e => e.id === appraisal.employeeId);
+      const employee = data.employees.find(e => employeeLookupKeys(e).includes(String(appraisal.employeeId || "")));
       const body = await readBody(req);
-      if (user.role === Roles.LINE_MANAGER) {
+      if (managerCanAccessEmployee(user, employee)) {
         if (!managerCanAccessEmployee(user, employee)) return sendJson(res, 403, { error: "Line managers can only appraise assigned employees." });
         if (!data.appraisalPeriods.find(p => p.id === appraisal.periodId && p.status === "open")) return sendJson(res, 423, { error: "Appraisal period is not open." });
         if (body.confirmEmployeeComments) {

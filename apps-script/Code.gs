@@ -537,7 +537,9 @@ function updateAppraisal_(user, id, body) {
   let appraisal = readRows_("Appraisals").map(parseAppraisal_).find(function(row) { return row.id === id; });
   if (!appraisal && id.indexOf("queue-") === 0) {
     const parts = id.match(/^queue-(.+)-(period-.+)$/) || [];
-    const employee = readRows_("Employees").find(function(row) { return row.id === parts[1]; });
+    const employee = readRows_("Employees").find(function(row) {
+      return employeeLookupKeys_(row).indexOf(String(parts[1] || "")) !== -1;
+    });
     if (employee) {
       appraisal = makeAppraisal_(employee, parts[2]);
       appraisal.id = "app-" + Date.now();
@@ -545,8 +547,11 @@ function updateAppraisal_(user, id, body) {
     }
   }
   if (!appraisal) throw new Error("Appraisal record not found.");
-  if (user.role === "LINE_MANAGER") {
-    const employee = readById_("Employees", appraisal.employeeId);
+  const employee = readRows_("Employees").find(function(row) {
+    return employeeLookupKeys_(row).indexOf(String(appraisal.employeeId || "")) !== -1;
+  });
+  if (!employee) throw new Error("Employee record not found.");
+  if (managerCanAccessEmployee_(user, employee)) {
     if (!managerCanAccessEmployee_(user, employee)) throw new Error("Line managers can only update assigned employees.");
     if (body.confirmEmployeeComments) appraisal.scores.forEach(score => score.managerConfirmedEmployeeComment = true);
     if (body.scores) appraisal.scores = body.scores;

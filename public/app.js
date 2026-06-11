@@ -475,14 +475,14 @@ function managerAssignedKpiTable(appraisal) {
 
 function appraisalCard(appraisal) {
   const employeeName = appraisal.employee ? `${appraisal.employee.firstName} ${appraisal.employee.lastName}` : "Employee";
-  const canScore = state.user.role === "LINE_MANAGER" && appraisal.status !== "Approved";
+  const canScore = canAssessAssignedStaff() && appraisal.status !== "Approved";
   const canReview = ["HR_ADMIN", "SUPER_ADMIN"].includes(state.user.role);
   const canAck = state.user.role === "EMPLOYEE" && appraisal.status === "Published";
   const hasEmployeeComments = appraisal.scores.some(score => score.employeeComment);
   const hasUnconfirmedComments = appraisal.scores.some(score => score.employeeComment && !score.managerConfirmedEmployeeComment);
   return `<article class="card" style="margin-bottom:14px">
     <div class="topbar"><div><h2>${escapeHtml(employeeName)}</h2><div class="hint">${escapeHtml(appraisal.employee?.department)} · ${escapeHtml(appraisal.employee?.jobTitle)}</div></div><div><span class="badge ${appraisal.status}">${escapeHtml(appraisal.status)}</span></div></div>
-    ${state.user.role === "LINE_MANAGER" ? managerScoreForm(appraisal) : table(appraisal.scores.map(s => ({ ...s, employeeComment: s.employeeComment || "No employee comment yet", employeeCommentStatus: s.managerConfirmedEmployeeComment ? "Confirmed" : (s.employeeComment ? "Pending confirmation" : "Not submitted"), weighted: (Number(s.score) * Number(s.weight) / 100).toFixed(2) })), ["title", "weight", "target", "score", "actualResult", "managerComment", "employeeComment", "employeeCommentStatus", "weighted"], [])}
+    ${canAssessAssignedStaff() ? managerScoreForm(appraisal) : table(appraisal.scores.map(s => ({ ...s, employeeComment: s.employeeComment || "No employee comment yet", employeeCommentStatus: s.managerConfirmedEmployeeComment ? "Confirmed" : (s.employeeComment ? "Pending confirmation" : "Not submitted"), weighted: (Number(s.score) * Number(s.weight) / 100).toFixed(2) })), ["title", "weight", "target", "score", "actualResult", "managerComment", "employeeComment", "employeeCommentStatus", "weighted"], [])}
     <div class="grid cards" style="margin-top:12px">
       <div class="card"><div class="metric">Final score</div><div class="metric-value">${appraisal.finalScore}</div></div>
       <div class="card"><div class="metric">Final rating</div><div class="metric-value">${escapeHtml(appraisal.rating)}</div></div>
@@ -496,6 +496,10 @@ function appraisalCard(appraisal) {
       ${canAck ? `<button data-ack="${appraisal.id}">Acknowledge result</button>` : ""}
     </div>
   </article>`;
+}
+
+function canAssessAssignedStaff() {
+  return state.user.role === "LINE_MANAGER" || Boolean((state.data.assignedStaff || []).length);
 }
 
 function managerScoreForm(appraisal) {
@@ -580,14 +584,14 @@ function assignedStaffTable(rows) {
     const appraisal = managerAppraisalForEmployee(employeeRecordKey(employee));
     const scores = appraisal?.scores || employeeAssignedKpiRows(employee);
     const kpiTitles = scores.length ? scores.map(score => score.title).join(", ") : "No KPI assigned";
-    const openAttr = appraisal ? ` class="clickable-row" data-open-manager-review="${escapeHtml(appraisal.id)}"` : "";
+    const openAttr = ` class="clickable-row" data-assess-staff="${escapeHtml(employeeRecordKey(employee))}"`;
     return `<tr${openAttr}>
       <td><button class="link-button" type="button">${escapeHtml(`${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.name || "Employee")}</button></td>
       <td>${escapeHtml(employee.department || "")}</td>
       <td>${escapeHtml(employee.jobTitle || "")}</td>
       <td><strong>${escapeHtml(scores.length)}</strong><div class="hint">${escapeHtml(kpiTitles)}</div></td>
       <td><span class="badge ${escapeHtml(appraisal?.status || "Not Started")}">${escapeHtml(appraisal?.status || "Not Started")}</span></td>
-      <td>${appraisal ? `<button type="button" data-open-manager-review="${escapeHtml(appraisal.id)}">Assess Staff</button>` : "<span class='hint'>No score sheet</span>"}</td>
+      <td><button type="button" data-assess-staff="${escapeHtml(employeeRecordKey(employee))}">Assess Staff</button></td>
     </tr>`;
   }).join("")}</tbody></table></div>`;
 }
@@ -611,6 +615,14 @@ function managerAppraisalForEmployee(employeeId) {
     appraisal.employee?.employeeId === employeeId ||
     employeeLookupKeys(appraisal.employee).includes(String(employeeId || ""))
   );
+}
+
+function staffAppraisalForEmployee(employeeId) {
+  const appraisal = managerAppraisalForEmployee(employeeId);
+  if (appraisal) return appraisal;
+  const employee = [...(state.data.assignedStaff || []), ...state.data.employees].find(item => employeeLookupKeys(item).includes(String(employeeId || "")));
+  if (!employee) return null;
+  return buildQueuedAppraisal(employee);
 }
 
 function renderReports() {
@@ -1021,7 +1033,7 @@ function managerAttachedEmployees() {
 }
 
 function managerAssignedAppraisals() {
-  if (state.user.role !== "LINE_MANAGER") return state.data.appraisals;
+  if (state.user.role !== "LINE_MANAGER" && !(state.data.assignedStaff || []).length) return state.data.appraisals;
   const periodId = state.data.periods.find(period => period.status === "open")?.id || state.data.periods[0]?.id || "";
   const rows = [];
   const addedEmployees = new Set();
@@ -1034,7 +1046,8 @@ function managerAssignedAppraisals() {
     rows.push({ ...appraisal, employee });
     addedEmployees.add(key);
   }
-  for (const employee of managerAttachedEmployees()) {
+  const staffRows = state.user.role === "LINE_MANAGER" ? managerAttachedEmployees() : (state.data.assignedStaff || []);
+  for (const employee of staffRows) {
     const key = employeeRecordKey(employee);
     if (addedEmployees.has(key)) continue;
     const existing = state.data.appraisals.find(appraisal =>
@@ -1046,33 +1059,38 @@ function managerAssignedAppraisals() {
       addedEmployees.add(key);
       continue;
     }
-    const scores = employeeAssignedKpiRows(employee).map((score, index) => ({
-      id: score.id || `queue-${key}-score-${index + 1}`,
-      title: score.title,
-      weight: score.weight,
-      target: score.target || "Meet or exceed approved target",
-      score: score.score || 18,
-      actualResult: score.actualResult || "",
-      managerComment: score.managerComment || "",
-      evidenceNote: score.evidenceNote || "",
-      evidenceFileName: score.evidenceFileName || "",
-      employeeComment: score.employeeComment || "",
-      managerConfirmedEmployeeComment: Boolean(score.managerConfirmedEmployeeComment)
-    }));
-    rows.push({
-      id: `queue-${key}-${periodId}`,
-      employeeId: key,
-      employee,
-      periodId,
-      managerUserId: employee.lineManagerUserId,
-      status: "Not Started",
-      scores,
-      finalScore: 0,
-      rating: "Not rated"
-    });
+    rows.push(buildQueuedAppraisal(employee, periodId));
     addedEmployees.add(key);
   }
   return rows;
+}
+
+function buildQueuedAppraisal(employee, periodId = state.data.periods.find(period => period.status === "open")?.id || state.data.periods[0]?.id || "") {
+  const key = employeeRecordKey(employee);
+  const scores = employeeAssignedKpiRows(employee).map((score, index) => ({
+    id: score.id || `queue-${key}-score-${index + 1}`,
+    title: score.title,
+    weight: score.weight,
+    target: score.target || "Meet or exceed approved target",
+    score: score.score || 18,
+    actualResult: score.actualResult || "",
+    managerComment: score.managerComment || "",
+    evidenceNote: score.evidenceNote || "",
+    evidenceFileName: score.evidenceFileName || "",
+    employeeComment: score.employeeComment || "",
+    managerConfirmedEmployeeComment: Boolean(score.managerConfirmedEmployeeComment)
+  }));
+  return {
+    id: `queue-${key}-${periodId}`,
+    employeeId: key,
+    employee,
+    periodId,
+    managerUserId: employee.lineManagerUserId || state.user.id,
+    status: "Not Started",
+    scores,
+    finalScore: 0,
+    rating: "Not rated"
+  };
 }
 
 function periodForm() {
@@ -1898,6 +1916,13 @@ function attachHandlers() {
   }));
   document.querySelectorAll("[data-open-appraisal]").forEach(button => button.addEventListener("click", () => {
     const appraisal = state.data.appraisals.find(item => item.id === button.dataset.openAppraisal);
+    if (appraisal) openModal(appraisalModal(appraisal));
+  }));
+  document.querySelectorAll("[data-assess-staff]").forEach(target => target.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const holder = event.currentTarget.closest("[data-assess-staff]") || event.currentTarget;
+    const appraisal = staffAppraisalForEmployee(holder.dataset.assessStaff);
     if (appraisal) openModal(appraisalModal(appraisal));
   }));
   document.querySelectorAll("[data-open-manager-review]").forEach(button => button.addEventListener("click", event => {
