@@ -580,13 +580,14 @@ function assignedStaffTable(rows) {
     const appraisal = managerAppraisalForEmployee(employeeRecordKey(employee));
     const scores = appraisal?.scores || employeeAssignedKpiRows(employee);
     const kpiTitles = scores.length ? scores.map(score => score.title).join(", ") : "No KPI assigned";
-    return `<tr>
-      <td>${escapeHtml(`${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.name || "Employee")}</td>
+    const openAttr = appraisal ? ` class="clickable-row" data-open-manager-review="${escapeHtml(appraisal.id)}"` : "";
+    return `<tr${openAttr}>
+      <td><button class="link-button" type="button">${escapeHtml(`${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.name || "Employee")}</button></td>
       <td>${escapeHtml(employee.department || "")}</td>
       <td>${escapeHtml(employee.jobTitle || "")}</td>
       <td><strong>${escapeHtml(scores.length)}</strong><div class="hint">${escapeHtml(kpiTitles)}</div></td>
       <td><span class="badge ${escapeHtml(appraisal?.status || "Not Started")}">${escapeHtml(appraisal?.status || "Not Started")}</span></td>
-      <td>${appraisal ? `<button type="button" data-open-manager-review="${escapeHtml(appraisal.id)}">Open Score Sheet</button>` : "<span class='hint'>No score sheet</span>"}</td>
+      <td>${appraisal ? `<button type="button" data-open-manager-review="${escapeHtml(appraisal.id)}">Assess Staff</button>` : "<span class='hint'>No score sheet</span>"}</td>
     </tr>`;
   }).join("")}</tbody></table></div>`;
 }
