@@ -125,14 +125,14 @@ function managerKeys(user) {
     user.id,
     ...data.employees
       .filter(employee => employee.userId === user.id)
-      .flatMap(employee => [employee.id, employee.employeeId])
+      .flatMap(employee => employeeLookupKeys(employee))
   ].filter(Boolean);
 }
 
 function managerDepartmentNames(user) {
   const keys = managerKeys(user);
   return data.departments
-    .filter(department => keys.includes(department.head) || keys.includes(department.managerialRole) || keys.includes(department.supervisoryRole))
+    .filter(department => [department.head, department.managerialRole, department.supervisoryRole].some(value => keys.includes(String(value || "")) || keys.includes(String(value || "").toLowerCase()) || keys.includes(String(value || "").toUpperCase())))
     .map(department => department.name);
 }
 
@@ -141,7 +141,7 @@ function managerAssignedEmployees(user) {
   const departments = managerDepartmentNames(user);
   return data.employees.filter(employee =>
     employee.userId !== user.id &&
-    (keys.includes(employee.lineManagerUserId) || departments.includes(employee.department))
+    (keys.includes(String(employee.lineManagerUserId || "")) || keys.includes(String(employee.lineManagerUserId || "").toLowerCase()) || keys.includes(String(employee.lineManagerUserId || "").toUpperCase()) || departments.includes(employee.department))
   );
 }
 

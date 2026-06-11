@@ -258,8 +258,7 @@ function managerKeys_(user) {
   const employees = readRows_("Employees");
   let keys = [user.id];
   employees.filter(function(employee) { return employee.userId === user.id; }).forEach(function(employee) {
-    keys.push(employee.id);
-    keys.push(employee.employeeId);
+    keys = keys.concat(employeeLookupKeys_(employee));
   });
   return keys.filter(Boolean);
 }
@@ -267,7 +266,10 @@ function managerKeys_(user) {
 function managerDepartmentNames_(user) {
   const keys = managerKeys_(user);
   return readRows_("Departments").filter(function(department) {
-    return keys.indexOf(department.head) !== -1 || keys.indexOf(department.managerialRole) !== -1 || keys.indexOf(department.supervisoryRole) !== -1;
+    return [department.head, department.managerialRole, department.supervisoryRole].some(function(value) {
+      const key = String(value || "");
+      return keys.indexOf(key) !== -1 || keys.indexOf(key.toLowerCase()) !== -1 || keys.indexOf(key.toUpperCase()) !== -1;
+    });
   }).map(function(department) { return department.name; });
 }
 
@@ -275,8 +277,9 @@ function managerAssignedEmployees_(user) {
   const keys = managerKeys_(user);
   const departments = managerDepartmentNames_(user);
   return readRows_("Employees").filter(function(employee) {
+    const managerKey = String(employee.lineManagerUserId || "");
     return employee.userId !== user.id &&
-      (keys.indexOf(employee.lineManagerUserId) !== -1 || departments.indexOf(employee.department) !== -1);
+      (keys.indexOf(managerKey) !== -1 || keys.indexOf(managerKey.toLowerCase()) !== -1 || keys.indexOf(managerKey.toUpperCase()) !== -1 || departments.indexOf(employee.department) !== -1);
   });
 }
 

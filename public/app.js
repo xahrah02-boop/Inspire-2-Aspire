@@ -6,7 +6,7 @@ let globalHandlersBound = false;
 const roleMenus = {
   SUPER_ADMIN: ["dashboard", "users", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
   HR_ADMIN: ["dashboard", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
-  LINE_MANAGER: ["dashboard", "profile", "employees", "appraisals", "results", "help"],
+  LINE_MANAGER: ["dashboard", "profile", "assignedStaff", "employees", "appraisals", "results", "help"],
   EMPLOYEE: ["profile", "kpis", "assignedStaff", "results", "help"]
 };
 
@@ -569,7 +569,7 @@ function renderProfile() {
 }
 
 function renderAssignedStaff() {
-  const rows = state.data.assignedStaff || [];
+  const rows = state.user.role === "LINE_MANAGER" ? managerAttachedEmployees() : (state.data.assignedStaff || []);
   return panel("Assigned staff", rows.length ? assignedStaffTable(rows) : "<div class='empty'>No staff assigned yet.</div>");
 }
 
