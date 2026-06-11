@@ -636,7 +636,7 @@ function actualResultValue_(score) {
   const rawActual = String(score.actualResult || "").trim();
   const actual = rawActual === "" ? NaN : Number(rawActual);
   if (!isNaN(actual) && isFinite(actual)) return actual;
-  return Number(score.score || 0);
+  return 0;
 }
 
 function ratingForScore_(score) {

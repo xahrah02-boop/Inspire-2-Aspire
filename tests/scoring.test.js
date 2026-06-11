@@ -8,10 +8,10 @@ test("calculates final score by summing actual results", () => {
   assert.equal(ratingForScore(score), "Excellent");
 });
 
-test("falls back to summing scores when actual result is not numeric", () => {
+test("ignores score field when actual result is not numeric", () => {
   const score = calculateFinalScore([{ score: 24, weight: 20 }, { score: 30, weight: 30 }, { score: 18, weight: 50 }]);
-  assert.equal(score, 72);
-  assert.equal(ratingForScore(score), "Excellent");
+  assert.equal(score, 0);
+  assert.equal(ratingForScore(score), "Unsatisfactory");
 });
 
 test("rejects invalid appraisal scores", () => {

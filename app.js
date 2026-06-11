@@ -501,7 +501,7 @@ function appraisalCard(appraisal) {
     <div class="topbar"><div><h2>${escapeHtml(employeeName)}</h2><div class="hint">${escapeHtml(appraisal.employee?.department)} · ${escapeHtml(appraisal.employee?.jobTitle)}</div></div><div><span class="badge ${appraisal.status}">${escapeHtml(appraisal.status)}</span></div></div>
     ${canAssessAssignedStaff() ? managerScoreForm(appraisal) : table(appraisal.scores.map(s => ({ ...s, employeeComment: s.employeeComment || "No employee comment yet", employeeCommentStatus: s.managerConfirmedEmployeeComment ? "Confirmed" : (s.employeeComment ? "Pending confirmation" : "Not submitted"), resultValue: scoreResultValue(s) })), ["title", "weight", "target", "score", "actualResult", "managerComment", "employeeComment", "employeeCommentStatus", "resultValue"], [])}
     <div class="grid cards" style="margin-top:12px">
-      <div class="card"><div class="metric">Final score</div><div class="metric-value">${appraisal.finalScore}</div></div>
+      <div class="card"><div class="metric">Final score</div><div class="metric-value">${appraisalFinalScore(appraisal)}</div></div>
       <div class="card"><div class="metric">Final rating</div><div class="metric-value">${escapeHtml(appraisal.rating)}</div></div>
       <div class="card"><div class="metric">Training recommendation</div><strong>${escapeHtml(appraisal.trainingRecommendation)}</strong></div>
       <div class="card"><div class="metric">HR comment</div><strong>${escapeHtml(appraisal.hrComment || "Pending HR review")}</strong></div>
@@ -528,7 +528,7 @@ function managerScoreForm(appraisal) {
       <td>${escapeHtml(score.weight)}%</td>
       <td>${escapeHtml(score.target)}</td>
       <td><input class="score-input" name="score" type="number" min="1" max="30" step="1" value="${escapeHtml(score.score)}" data-score-field="score" aria-label="Score 1 to 30"></td>
-      <td><textarea name="actualResult" data-score-field="actualResult">${escapeHtml(score.actualResult || "")}</textarea></td>
+      <td><input class="score-input" name="actualResult" type="number" min="0" step="0.01" value="${escapeHtml(score.actualResult || "")}" data-score-field="actualResult" aria-label="Actual result value"></td>
       <td><textarea name="managerComment" data-score-field="managerComment">${escapeHtml(score.managerComment || "")}</textarea></td>
       <td>
         <label class="file-field">
@@ -2276,7 +2276,7 @@ function collectManagerScores(appraisal) {
     return {
       ...score,
       score: normalizeScoreValue(row.querySelector("[data-score-field='score']")?.value || score.score),
-      actualResult: row.querySelector("[data-score-field='actualResult']")?.value || "",
+      actualResult: normalizeActualResultValue(row.querySelector("[data-score-field='actualResult']")?.value),
       managerComment: row.querySelector("[data-score-field='managerComment']")?.value || "",
       evidenceNote: row.querySelector("[data-score-field='evidenceFile']")?.files?.[0]?.name || score.evidenceFileName || score.evidenceNote || "",
       evidenceFileName: row.querySelector("[data-score-field='evidenceFile']")?.files?.[0]?.name || score.evidenceFileName || ""
@@ -2290,11 +2290,21 @@ function normalizeScoreValue(value) {
   return Math.min(30, Math.max(1, Math.round(score)));
 }
 
+function normalizeActualResultValue(value) {
+  const actual = Number(value);
+  return Number.isFinite(actual) ? Math.round(actual * 100) / 100 : "";
+}
+
 function scoreResultValue(score) {
   const actualText = String(score.actualResult ?? "").trim();
   const actual = actualText === "" ? NaN : Number(actualText);
-  const value = Number.isFinite(actual) ? actual : Number(score.score || 0);
+  const value = Number.isFinite(actual) ? actual : 0;
   return Math.round(value * 100) / 100;
+}
+
+function appraisalFinalScore(appraisal) {
+  const total = (appraisal.scores || []).reduce((sum, score) => sum + scoreResultValue(score), 0);
+  return Math.round(total * 100) / 100;
 }
 
 init();

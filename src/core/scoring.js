@@ -35,7 +35,7 @@ export function actualResultValue(item) {
   const rawActual = String(item.actualResult ?? "").trim();
   const actual = rawActual === "" ? NaN : Number(rawActual);
   if (Number.isFinite(actual)) return actual;
-  return validateScore(item.score);
+  return 0;
 }
 
 export function ratingForScore(finalScore) {
