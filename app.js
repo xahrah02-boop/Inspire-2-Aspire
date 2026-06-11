@@ -127,6 +127,23 @@ function bindGlobalHandlers() {
   if (globalHandlersBound) return;
   globalHandlersBound = true;
   document.addEventListener("click", event => {
+    const assessStaffTarget = event.target.closest?.("[data-assess-staff]");
+    if (assessStaffTarget) {
+      event.preventDefault();
+      event.stopPropagation();
+      const appraisal = staffAppraisalForEmployee(assessStaffTarget.dataset.assessStaff);
+      if (appraisal) openModal(appraisalModal(appraisal));
+      return;
+    }
+    const managerReviewTarget = event.target.closest?.("[data-open-manager-review]");
+    if (managerReviewTarget) {
+      event.preventDefault();
+      event.stopPropagation();
+      const appraisal = state.data.appraisals.find(item => item.id === managerReviewTarget.dataset.openManagerReview)
+        || managerAssignedAppraisals().find(item => item.id === managerReviewTarget.dataset.openManagerReview);
+      if (appraisal) openModal(appraisalModal(appraisal));
+      return;
+    }
     const createKpiButton = event.target.closest?.("[data-create-kpi]");
     if (!createKpiButton) return;
     event.preventDefault();
@@ -573,8 +590,27 @@ function renderProfile() {
 }
 
 function renderAssignedStaff() {
-  const rows = state.user.role === "LINE_MANAGER" ? managerAttachedEmployees() : (state.data.assignedStaff || []);
+  const rows = assignedStaffRows();
   return panel("Assigned staff", rows.length ? assignedStaffTable(rows) : "<div class='empty'>No staff assigned yet.</div>");
+}
+
+function assignedStaffRows() {
+  const rows = [
+    ...(state.data.assignedStaff || []),
+    ...(state.user.role === "LINE_MANAGER" ? managerAttachedEmployees() : []),
+    ...managerAssignedAppraisals().map(appraisal => appraisal.employee).filter(Boolean)
+  ];
+  return uniqueEmployees(rows).filter(employee => employee.userId !== state.user.id);
+}
+
+function uniqueEmployees(rows) {
+  const seen = new Set();
+  return rows.filter(employee => {
+    const key = employeeRecordKey(employee);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function assignedStaffTable(rows) {
