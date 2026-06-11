@@ -568,6 +568,7 @@ function bootstrapPayload(user) {
     templates: [Roles.EMPLOYEE].includes(user.role) ? data.templates.filter(t => employees.some(e => e.templateId === t.id)) : data.templates,
     periods: data.appraisalPeriods,
     appraisals,
+    assignedStaff: managerAssignedEmployees(user),
     userList: [Roles.SUPER_ADMIN, Roles.HR_ADMIN].includes(user.role) ? data.users.map(publicUser) : [],
     reports: reports(),
     guides: data.guides,

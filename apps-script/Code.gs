@@ -172,6 +172,7 @@ function bootstrap_(user) {
     templates: readRows_("KpiTemplates").map(parseTemplate_),
     periods: readRows_("AppraisalPeriods").map(parsePeriod_),
     appraisals,
+    assignedStaff: managerAssignedEmployees_(user),
     userList: user.role === "HR_ADMIN" ? readRows_("Users").map(publicUser_) : [],
     reports: reports_(),
     guides: [],

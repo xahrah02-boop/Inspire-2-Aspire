@@ -7,14 +7,14 @@ const roleMenus = {
   SUPER_ADMIN: ["dashboard", "users", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
   HR_ADMIN: ["dashboard", "departments", "kpis", "templates", "employees", "periods", "appraisals", "reports", "help", "audit"],
   LINE_MANAGER: ["dashboard", "profile", "employees", "appraisals", "results", "help"],
-  EMPLOYEE: ["profile", "kpis", "results", "help"]
+  EMPLOYEE: ["profile", "kpis", "assignedStaff", "results", "help"]
 };
 
 const labels = {
   dashboard: "Dashboard", users: "Users", departments: "Departments & Roles", kpis: "KPI Master",
   templates: "KPI Templates", employees: "Employee Master", periods: "Appraisal Periods",
   appraisals: "My Appraisals / HR Review", reports: "Reports", help: "Onboarding & Help",
-  audit: "Audit Trail", profile: "My Profile", results: "Appraisal Results"
+  audit: "Audit Trail", profile: "My Profile", assignedStaff: "Assigned Staff", results: "Appraisal Results"
 };
 
 async function api(path, options = {}) {
@@ -242,6 +242,7 @@ function subtitleFor(view) {
     templates: "Build KPI templates with 100% weight validation.",
     employees: "Maintain employee data, managers, templates, and account status.",
     appraisals: "Manager scoring, HR review, approval, publishing, and acknowledgement.",
+    assignedStaff: "Staff linked to the logged-in employee.",
     help: "Guidance for HR admins, line managers, employees, and new starters.",
     reports: "Performance, completion, training, probation, and department summaries.",
     audit: "Traceable system actions for compliance and governance."
@@ -253,7 +254,7 @@ function renderView() {
   const renderers = {
     dashboard: renderDashboard, departments: renderDepartments, kpis: renderKpis, templates: renderTemplates,
     employees: renderEmployees, periods: renderPeriods, appraisals: renderAppraisals, reports: renderReports,
-    help: renderHelp, audit: renderAudit, profile: renderProfile, results: renderResults, users: renderUsers
+    help: renderHelp, audit: renderAudit, profile: renderProfile, assignedStaff: renderAssignedStaff, results: renderResults, users: renderUsers
   };
   try {
     target.innerHTML = renderers[state.view]?.() || "<div class='empty'>No view configured.</div>";
@@ -565,6 +566,22 @@ function renderProfile() {
   const employee = state.data.employees[0];
   if (!employee) return "<div class='empty'>No employee profile found.</div>";
   return panel("My profile", table([employee], ["employeeId", "firstName", "lastName", "email", "phone", "department", "jobTitle", "status", "emergencyContact"], ["status"]));
+}
+
+function renderAssignedStaff() {
+  const rows = state.data.assignedStaff || [];
+  return panel("Assigned staff", rows.length ? assignedStaffTable(rows) : "<div class='empty'>No staff assigned yet.</div>");
+}
+
+function assignedStaffTable(rows) {
+  return `<div class="table-wrap"><table><thead><tr>
+    <th>Employee</th><th>Department</th><th>Designation</th><th>Status</th>
+  </tr></thead><tbody>${rows.map(employee => `<tr>
+    <td>${escapeHtml(`${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.name || "Employee")}</td>
+    <td>${escapeHtml(employee.department || "")}</td>
+    <td>${escapeHtml(employee.jobTitle || "")}</td>
+    <td><span class="badge ${escapeHtml(employee.status || "active")}">${escapeHtml(employee.status || "active")}</span></td>
+  </tr>`).join("")}</tbody></table></div>`;
 }
 
 function managerAssignedEmployeesTable(rows) {
