@@ -499,7 +499,7 @@ function appraisalCard(appraisal) {
   const hasUnconfirmedComments = appraisal.scores.some(score => score.employeeComment && !score.managerConfirmedEmployeeComment);
   return `<article class="card" style="margin-bottom:14px">
     <div class="topbar"><div><h2>${escapeHtml(employeeName)}</h2><div class="hint">${escapeHtml(appraisal.employee?.department)} · ${escapeHtml(appraisal.employee?.jobTitle)}</div></div><div><span class="badge ${appraisal.status}">${escapeHtml(appraisal.status)}</span></div></div>
-    ${canAssessAssignedStaff() ? managerScoreForm(appraisal) : table(appraisal.scores.map(s => ({ ...s, employeeComment: s.employeeComment || "No employee comment yet", employeeCommentStatus: s.managerConfirmedEmployeeComment ? "Confirmed" : (s.employeeComment ? "Pending confirmation" : "Not submitted"), weighted: (Number(s.score) * Number(s.weight) / 100).toFixed(2) })), ["title", "weight", "target", "score", "actualResult", "managerComment", "employeeComment", "employeeCommentStatus", "weighted"], [])}
+    ${canAssessAssignedStaff() ? managerScoreForm(appraisal) : table(appraisal.scores.map(s => ({ ...s, employeeComment: s.employeeComment || "No employee comment yet", employeeCommentStatus: s.managerConfirmedEmployeeComment ? "Confirmed" : (s.employeeComment ? "Pending confirmation" : "Not submitted"), resultValue: scoreResultValue(s) })), ["title", "weight", "target", "score", "actualResult", "managerComment", "employeeComment", "employeeCommentStatus", "resultValue"], [])}
     <div class="grid cards" style="margin-top:12px">
       <div class="card"><div class="metric">Final score</div><div class="metric-value">${appraisal.finalScore}</div></div>
       <div class="card"><div class="metric">Final rating</div><div class="metric-value">${escapeHtml(appraisal.rating)}</div></div>
@@ -522,7 +522,7 @@ function canAssessAssignedStaff() {
 function managerScoreForm(appraisal) {
   return `<form data-manager-score-form="${escapeHtml(appraisal.id)}">
     <div class="table-wrap appraisal-score-wrap"><table class="score-table"><thead><tr>
-      <th>KPI</th><th>Weight</th><th>Target</th><th>Score</th><th>Actual result</th><th>Manager review comment</th><th>Supporting document</th><th>Employee KPI comment</th><th>Comment status</th><th>Weighted</th>
+      <th>KPI</th><th>Weight</th><th>Target</th><th>Score</th><th>Actual result</th><th>Manager review comment</th><th>Supporting document</th><th>Employee KPI comment</th><th>Comment status</th><th>Result value</th>
     </tr></thead><tbody>${appraisal.scores.map(score => `<tr data-score-row="${escapeHtml(score.id)}">
       <td><strong>${escapeHtml(score.title)}</strong></td>
       <td>${escapeHtml(score.weight)}%</td>
@@ -539,7 +539,7 @@ function managerScoreForm(appraisal) {
       </td>
       <td>${escapeHtml(score.employeeComment || "No employee comment yet")}</td>
       <td><span class="badge ${score.managerConfirmedEmployeeComment ? "active" : "Draft"}">${score.managerConfirmedEmployeeComment ? "Confirmed" : (score.employeeComment ? "Pending confirmation" : "Not submitted")}</span></td>
-      <td>${(Number(score.score) * Number(score.weight) / 100).toFixed(2)}</td>
+      <td>${escapeHtml(scoreResultValue(score))}</td>
     </tr>`).join("")}</tbody></table></div>
   </form>`;
 }
@@ -2291,6 +2291,13 @@ function normalizeScoreValue(value) {
   const score = Number(value);
   if (!Number.isFinite(score)) return 18;
   return Math.min(30, Math.max(1, Math.round(score)));
+}
+
+function scoreResultValue(score) {
+  const actualText = String(score.actualResult ?? "").trim();
+  const actual = actualText === "" ? NaN : Number(actualText);
+  const value = Number.isFinite(actual) ? actual : Number(score.score || 0);
+  return Math.round(value * 100) / 100;
 }
 
 init();

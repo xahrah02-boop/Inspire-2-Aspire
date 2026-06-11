@@ -628,8 +628,15 @@ function decorateAppraisal_(appraisal) {
 
 function calculateFinalScore_(scores) {
   return Math.round((scores || []).reduce(function(total, score) {
-    return total + (Number(score.score || 0) * Number(score.weight || 0) / 100);
+    return total + actualResultValue_(score);
   }, 0) * 100) / 100;
+}
+
+function actualResultValue_(score) {
+  const rawActual = String(score.actualResult || "").trim();
+  const actual = rawActual === "" ? NaN : Number(rawActual);
+  if (!isNaN(actual) && isFinite(actual)) return actual;
+  return Number(score.score || 0);
 }
 
 function ratingForScore_(score) {

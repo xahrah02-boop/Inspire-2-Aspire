@@ -27,8 +27,15 @@ export function weightedContribution(score, weight) {
 }
 
 export function calculateFinalScore(scores) {
-  const total = scores.reduce((sum, item) => sum + weightedContribution(item.score, item.weight), 0);
+  const total = scores.reduce((sum, item) => sum + actualResultValue(item), 0);
   return Math.round(total * 100) / 100;
+}
+
+export function actualResultValue(item) {
+  const rawActual = String(item.actualResult ?? "").trim();
+  const actual = rawActual === "" ? NaN : Number(rawActual);
+  if (Number.isFinite(actual)) return actual;
+  return validateScore(item.score);
 }
 
 export function ratingForScore(finalScore) {
