@@ -615,17 +615,14 @@ function uniqueEmployees(rows) {
 
 function assignedStaffTable(rows) {
   return `<div class="table-wrap"><table><thead><tr>
-    <th>Employee</th><th>Department</th><th>Designation</th><th>Assigned KPIs</th><th>Score status</th><th>Action</th>
+    <th>Employee</th><th>Department</th><th>Designation</th><th>Score status</th><th>Action</th>
   </tr></thead><tbody>${rows.map(employee => {
     const appraisal = managerAppraisalForEmployee(employeeRecordKey(employee));
-    const scores = appraisal?.scores || employeeAssignedKpiRows(employee);
-    const kpiTitles = scores.length ? scores.map(score => score.title).join(", ") : "No KPI assigned";
     const openAttr = ` class="clickable-row" data-assess-staff="${escapeHtml(employeeRecordKey(employee))}"`;
     return `<tr${openAttr}>
       <td><button class="link-button" type="button">${escapeHtml(`${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.name || "Employee")}</button></td>
       <td>${escapeHtml(employee.department || "")}</td>
       <td>${escapeHtml(employee.jobTitle || "")}</td>
-      <td><strong>${escapeHtml(scores.length)}</strong><div class="hint">${escapeHtml(kpiTitles)}</div></td>
       <td><span class="badge ${escapeHtml(appraisal?.status || "Not Started")}">${escapeHtml(appraisal?.status || "Not Started")}</span></td>
       <td><button type="button" data-assess-staff="${escapeHtml(employeeRecordKey(employee))}">Assess Staff</button></td>
     </tr>`;
