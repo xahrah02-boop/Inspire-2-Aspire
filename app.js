@@ -501,7 +501,7 @@ function appraisalCard(appraisal) {
     <div class="topbar"><div><h2>${escapeHtml(employeeName)}</h2><div class="hint">${escapeHtml(appraisal.employee?.department)} · ${escapeHtml(appraisal.employee?.jobTitle)}</div></div><div><span class="badge ${appraisal.status}">${escapeHtml(appraisal.status)}</span></div></div>
     ${canAssessAssignedStaff() ? managerScoreForm(appraisal) : table(appraisal.scores.map(s => ({ ...s, employeeComment: s.employeeComment || "No employee comment yet", employeeCommentStatus: s.managerConfirmedEmployeeComment ? "Confirmed" : (s.employeeComment ? "Pending confirmation" : "Not submitted"), resultValue: scoreResultValue(s) })), ["title", "weight", "target", "score", "actualResult", "managerComment", "employeeComment", "employeeCommentStatus", "resultValue"], [])}
     <div class="grid cards" style="margin-top:12px">
-      <div class="card"><div class="metric">Final score</div><div class="metric-value">${appraisalFinalScore(appraisal)}</div></div>
+      <div class="card"><div class="metric">Final score</div><div class="metric-value" data-appraisal-final-score="${escapeHtml(appraisal.id)}">${appraisalFinalScore(appraisal)}</div></div>
       <div class="card"><div class="metric">Final rating</div><div class="metric-value">${escapeHtml(appraisal.rating)}</div></div>
       <div class="card"><div class="metric">Training recommendation</div><strong>${escapeHtml(appraisal.trainingRecommendation)}</strong></div>
       <div class="card"><div class="metric">HR comment</div><strong>${escapeHtml(appraisal.hrComment || "Pending HR review")}</strong></div>
@@ -539,7 +539,7 @@ function managerScoreForm(appraisal) {
       </td>
       <td>${escapeHtml(score.employeeComment || "No employee comment yet")}</td>
       <td><span class="badge ${score.managerConfirmedEmployeeComment ? "active" : "Draft"}">${score.managerConfirmedEmployeeComment ? "Confirmed" : (score.employeeComment ? "Pending confirmation" : "Not submitted")}</span></td>
-      <td>${escapeHtml(scoreResultValue(score))}</td>
+      <td data-score-result-value>${escapeHtml(scoreResultValue(score))}</td>
     </tr>`).join("")}</tbody></table></div>
   </form>`;
 }
@@ -1969,6 +1969,9 @@ function attachHandlers() {
     const label = event.currentTarget.closest("td")?.querySelector(".evidence-name");
     if (label) label.textContent = event.currentTarget.files?.[0]?.name || "No file attached";
   }));
+  document.querySelectorAll("[data-score-field='actualResult']").forEach(input => input.addEventListener("input", () => {
+    refreshVisibleAppraisalTotals(input.closest("[data-manager-score-form]"));
+  }));
 }
 
 function bindPeriodCreateForm() {
@@ -2291,7 +2294,9 @@ function normalizeScoreValue(value) {
 }
 
 function normalizeActualResultValue(value) {
-  const actual = Number(value);
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const actual = Number(text);
   return Number.isFinite(actual) ? Math.round(actual * 100) / 100 : "";
 }
 
@@ -2305,6 +2310,24 @@ function scoreResultValue(score) {
 function appraisalFinalScore(appraisal) {
   const total = (appraisal.scores || []).reduce((sum, score) => sum + scoreResultValue(score), 0);
   return Math.round(total * 100) / 100;
+}
+
+function refreshVisibleAppraisalTotals(form) {
+  if (!form) return;
+  let total = 0;
+  form.querySelectorAll("[data-score-row]").forEach(row => {
+    const value = scoreResultValue({ actualResult: row.querySelector("[data-score-field='actualResult']")?.value });
+    total += value;
+    const resultCell = row.querySelector("[data-score-result-value]");
+    if (resultCell) resultCell.textContent = formatNumber(value);
+  });
+  const finalScore = document.querySelector(`[data-appraisal-final-score="${CSS.escape(form.dataset.managerScoreForm)}"]`);
+  if (finalScore) finalScore.textContent = formatNumber(total);
+}
+
+function formatNumber(value) {
+  const rounded = Math.round(Number(value || 0) * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
 }
 
 init();
