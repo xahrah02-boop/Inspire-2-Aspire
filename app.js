@@ -642,12 +642,9 @@ function managerAssignedEmployeesTable(rows) {
 }
 
 function managerAppraisalForEmployee(employeeId) {
-  return managerAssignedAppraisals().find(appraisal =>
-    appraisal.employeeId === employeeId ||
-    appraisal.employee?.id === employeeId ||
-    appraisal.employee?.employeeId === employeeId ||
-    employeeLookupKeys(appraisal.employee).includes(String(employeeId || ""))
-  );
+  const targetEmployee = [...(state.data.assignedStaff || []), ...state.data.employees]
+    .find(employee => employeeLookupKeys(employee).includes(String(employeeId || "")));
+  return managerAssignedAppraisals().find(appraisal => appraisalMatchesEmployee(appraisal, employeeId, targetEmployee));
 }
 
 function staffAppraisalForEmployee(employeeId) {
@@ -656,6 +653,23 @@ function staffAppraisalForEmployee(employeeId) {
   const employee = [...(state.data.assignedStaff || []), ...state.data.employees].find(item => employeeLookupKeys(item).includes(String(employeeId || "")));
   if (!employee) return null;
   return buildQueuedAppraisal(employee);
+}
+
+function appraisalMatchesEmployee(appraisal, employeeId, employee = null) {
+  const requestedKeys = new Set([
+    String(employeeId || ""),
+    ...employeeLookupKeys(employee)
+  ].filter(Boolean).flatMap(key => [key, key.toLowerCase(), key.toUpperCase()]));
+  const appraisalKeys = new Set([
+    appraisal?.employeeId,
+    appraisal?.employee?.id,
+    appraisal?.employee?.employeeId,
+    appraisal?.employee?.userId,
+    appraisal?.employee?.email,
+    employeeRecordKey(appraisal?.employee),
+    ...employeeLookupKeys(appraisal?.employee)
+  ].filter(Boolean).map(String).flatMap(key => [key, key.toLowerCase(), key.toUpperCase()]));
+  return [...requestedKeys].some(key => appraisalKeys.has(key));
 }
 
 function renderReports() {
