@@ -528,6 +528,7 @@ async function handleApi(req, res, url) {
       for (const item of body.comments || []) {
         const score = appraisal.scores.find(row => row.id === item.scoreId || row.title === item.title);
         if (score) {
+          if (item.target !== undefined) score.target = item.target || score.target || "";
           score.employeeComment = item.employeeComment || "";
           score.managerConfirmedEmployeeComment = false;
           score.employeeCommentedAt = new Date().toISOString();

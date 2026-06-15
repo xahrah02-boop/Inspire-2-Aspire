@@ -390,10 +390,10 @@ function renderEmployeeKpis() {
     <form id="employeeKpiCommentForm" data-period-id="${escapeHtml(periodId)}">
       <div class="table-wrap"><table><thead><tr>
         <th>KPI</th><th>Weight</th><th>Target</th><th>My comment</th><th>Manager confirmed</th>
-      </tr></thead><tbody>${rows.map(score => `<tr>
+      </tr></thead><tbody>${rows.map(score => `<tr data-employee-kpi-row>
         <td><strong>${escapeHtml(score.title)}</strong></td>
         <td>${escapeHtml(score.weight)}%</td>
-        <td>${escapeHtml(score.target)}</td>
+        <td>${employeeTargetSelect(score)}</td>
         <td>
           <input type="hidden" name="scoreId" value="${escapeHtml(score.id)}">
           <textarea name="employeeComment" data-score-id="${escapeHtml(score.id)}" data-score-title="${escapeHtml(score.title)}" placeholder="Comment on this KPI">${escapeHtml(score.employeeComment || "")}</textarea>
@@ -1505,6 +1505,18 @@ function input(name, label, type = "text") {
   return `<div class="field"><label>${label}</label><input name="${name}" type="${type}" required></div>`;
 }
 
+function employeeTargetSelect(score) {
+  const options = targetOptions(score.target);
+  return `<select name="target" aria-label="Target for ${escapeHtml(score.title)}">
+    ${options.map(option => `<option value="${escapeHtml(option)}" ${option === score.target ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+  </select>`;
+}
+
+function targetOptions(currentTarget = "") {
+  const defaults = ["Meet target", "Exceed approved target", "Meet or exceed approved target"];
+  return [...new Set([String(currentTarget || "").trim(), ...defaults].filter(Boolean))];
+}
+
 function employeeSelect(name, label, selected = "", category = "all", department = "all") {
   const rows = state.data.employees.filter(employee => {
     const matchesCategory = category === "all" || employeeRoleCategories(employee).includes(category);
@@ -1906,11 +1918,15 @@ function attachHandlers() {
   }));
   document.querySelector("#employeeKpiCommentForm")?.addEventListener("submit", async event => {
     event.preventDefault();
-    const comments = Array.from(event.currentTarget.querySelectorAll("textarea[name='employeeComment']")).map(input => ({
-      scoreId: input.dataset.scoreId,
-      title: input.dataset.scoreTitle,
-      employeeComment: input.value
-    }));
+    const comments = Array.from(event.currentTarget.querySelectorAll("[data-employee-kpi-row]")).map(row => {
+      const input = row.querySelector("textarea[name='employeeComment']");
+      return {
+        scoreId: input.dataset.scoreId,
+        title: input.dataset.scoreTitle,
+        target: row.querySelector("select[name='target']")?.value || "",
+        employeeComment: input.value
+      };
+    });
     await api("/api/my-kpi-comments", { method: "POST", body: { periodId: event.currentTarget.dataset.periodId, comments } });
     state.data = await api("/api/bootstrap");
     toast("KPI comments saved");

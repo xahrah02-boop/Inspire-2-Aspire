@@ -525,6 +525,7 @@ function saveEmployeeKpiComments_(user, body) {
   appraisal.scores.forEach(score => {
     const item = (body.comments || []).find(comment => comment.scoreId === score.id || comment.title === score.title);
     if (item) {
+      if (item.target !== undefined) score.target = item.target || score.target || "";
       score.employeeComment = item.employeeComment || "";
       score.managerConfirmedEmployeeComment = false;
     }
