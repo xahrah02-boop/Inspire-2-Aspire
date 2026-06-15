@@ -624,7 +624,7 @@ function assignedStaffTable(rows) {
       <td>${escapeHtml(employee.department || "")}</td>
       <td>${escapeHtml(employee.jobTitle || "")}</td>
       <td><span class="badge ${escapeHtml(appraisal?.status || "Not Started")}">${escapeHtml(appraisal?.status || "Not Started")}</span></td>
-      <td><button type="button" data-assess-staff="${escapeHtml(employeeRecordKey(employee))}">Assess Staff</button></td>
+      <td><button type="button" data-assess-staff="${escapeHtml(employeeRecordKey(employee))}">Edit</button></td>
     </tr>`;
   }).join("")}</tbody></table></div>`;
 }
