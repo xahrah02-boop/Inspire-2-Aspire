@@ -692,7 +692,9 @@ function reports() {
   });
   return {
     completion: {
+      total: decorated.length,
       totalEmployees: data.employees.length,
+      approved: decorated.filter(a => ["Approved", "Published", "Acknowledged"].includes(a.status)).length,
       completed: decorated.filter(a => ["Approved", "Published", "Acknowledged"].includes(a.status)).length,
       pending: decorated.filter(a => ["Draft", "Submitted", "Returned"].includes(a.status)).length
     },

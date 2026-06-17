@@ -557,6 +557,16 @@ function updateAppraisal_(user, id, body) {
     if (body.confirmEmployeeComments) appraisal.scores.forEach(score => score.managerConfirmedEmployeeComment = true);
     if (body.scores) appraisal.scores = body.scores;
     appraisal.status = body.submit ? "Submitted" : "Draft";
+  } else if (user.role === "HR_ADMIN" || user.role === "SUPER_ADMIN") {
+    if (body.action === "return") appraisal.status = "Returned";
+    if (body.action === "approve") appraisal.status = "Approved";
+    if (body.action === "publish" && appraisal.status === "Approved") {
+      appraisal.status = "Published";
+      appraisal.published = true;
+    }
+    appraisal.hrComment = body.hrComment || appraisal.hrComment || "";
+  } else {
+    throw new Error("Not allowed.");
   }
   updateRow_("Appraisals", appraisal.id, serializeAppraisal_(appraisal));
   return decorateAppraisal_(appraisal);
@@ -584,7 +594,36 @@ function managerCanAccessEmployee_(user, employee) {
 }
 
 function reports_() {
-  return { completion: { completed: 0, pending: 0 }, byDepartment: [], trainingNeeds: [] };
+  const employees = readRows_("Employees");
+  const departments = readRows_("Departments");
+  const decorated = readRows_("Appraisals").map(parseAppraisal_).map(decorateAppraisal_);
+  const approved = decorated.filter(function(appraisal) { return isApprovedStatus_(appraisal.status); }).length;
+  const pending = decorated.filter(function(appraisal) { return isPendingStatus_(appraisal.status); }).length;
+  const byDepartment = departments.map(function(department) {
+    const rows = decorated.filter(function(appraisal) {
+      return appraisal.employee && appraisal.employee.department === department.name;
+    });
+    const average = rows.length ? Math.round(rows.reduce(function(total, appraisal) {
+      return total + Number(appraisal.finalScore || 0);
+    }, 0) / rows.length * 100) / 100 : 0;
+    return { department: department.name, appraisals: rows.length, average: average };
+  });
+  return {
+    completion: { total: decorated.length, totalEmployees: employees.length, approved: approved, completed: approved, pending: pending },
+    byDepartment: byDepartment,
+    trainingNeeds: decorated.map(function(appraisal) {
+      const employee = appraisal.employee || {};
+      return { employee: [employee.firstName, employee.lastName].filter(Boolean).join(" ") || appraisal.employeeId, recommendation: appraisal.trainingRecommendation || appraisal.hrComment || "" };
+    })
+  };
+}
+
+function isApprovedStatus_(status) {
+  return ["approved", "published", "acknowledged"].indexOf(String(status || "").toLowerCase()) !== -1;
+}
+
+function isPendingStatus_(status) {
+  return ["draft", "submitted", "returned", "not started"].indexOf(String(status || "").toLowerCase()) !== -1;
 }
 
 function makeAppraisal_(employee, periodId) {

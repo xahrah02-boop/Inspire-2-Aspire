@@ -674,16 +674,25 @@ function appraisalMatchesEmployee(appraisal, employeeId, employee = null) {
 
 function renderReports() {
   const r = state.data.reports;
-  const totalAppraisals = (r.completion.completed || 0) + (r.completion.pending || 0);
-  const approved = state.data.appraisals.filter(appraisal => ["Approved", "Published", "Acknowledged"].includes(appraisal.status)).length;
+  const approved = r.completion.approved ?? r.completion.completed ?? countApprovedAppraisals(state.data.appraisals);
+  const pending = r.completion.pending ?? countPendingAppraisals(state.data.appraisals);
+  const totalAppraisals = r.completion.total ?? state.data.appraisals.length ?? (approved + pending);
   return `<div class="grid cards">
     <article class="card"><div class="metric">Total appraisals</div><div class="metric-value">${totalAppraisals}</div></article>
-    <article class="card"><div class="metric">Pending appraisals</div><div class="metric-value">${r.completion.pending}</div></article>
+    <article class="card"><div class="metric">Pending appraisals</div><div class="metric-value">${pending}</div></article>
     <article class="card"><div class="metric">Approved appraisals</div><div class="metric-value">${approved}</div></article>
   </div>
   <div class="toolbar report-actions">
     ${canManage() ? `<button type="button" data-department-report>Department Performance Summary</button><button type="button" data-training-report>Training Needs Report</button>` : ""}
   </div>`;
+}
+
+function countApprovedAppraisals(appraisals = []) {
+  return appraisals.filter(appraisal => ["approved", "published", "acknowledged"].includes(String(appraisal.status || "").toLowerCase())).length;
+}
+
+function countPendingAppraisals(appraisals = []) {
+  return appraisals.filter(appraisal => ["draft", "submitted", "returned", "not started"].includes(String(appraisal.status || "").toLowerCase())).length;
 }
 
 function departmentReportModal() {
