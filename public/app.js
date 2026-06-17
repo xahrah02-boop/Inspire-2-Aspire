@@ -507,7 +507,7 @@ function appraisalCard(appraisal) {
       <div class="card"><div class="metric">HR comment</div><strong>${escapeHtml(appraisal.hrComment || "Pending HR review")}</strong></div>
     </div>
     <div class="toolbar" style="margin-top:12px">
-      ${canScore ? `<button data-submit-appraisal="${appraisal.id}">Submit to HR</button><button class="secondary" data-draft-appraisal="${appraisal.id}">Save draft</button>` : ""}
+      ${canScore ? `<button type="button" data-submit-appraisal="${appraisal.id}">Submit to HR</button><button type="button" class="secondary" data-draft-appraisal="${appraisal.id}">Save draft</button>` : ""}
       ${state.user.role === "LINE_MANAGER" && hasEmployeeComments ? `<button class="${hasUnconfirmedComments ? "" : "secondary"}" data-confirm-comments="${appraisal.id}" ${hasUnconfirmedComments ? "" : "disabled"}>${hasUnconfirmedComments ? "Confirm Employee Comments" : "Employee Comments Confirmed"}</button>` : ""}
       ${canReview ? `<button data-review="${appraisal.id}" data-action="approve">Approve</button><button data-review="${appraisal.id}" data-action="publish">Publish</button><button class="secondary" data-review="${appraisal.id}" data-action="return">Return</button>` : ""}
       ${canAck ? `<button data-ack="${appraisal.id}">Acknowledge result</button>` : ""}
@@ -1931,11 +1931,14 @@ function attachHandlers() {
     toast("Template created");
     renderShell();
   });
-  document.querySelectorAll("[data-submit-appraisal],[data-draft-appraisal]").forEach(button => button.addEventListener("click", async () => {
+  document.querySelectorAll("[data-submit-appraisal],[data-draft-appraisal]").forEach(button => button.addEventListener("click", async event => {
+    event.preventDefault();
+    event.stopPropagation();
     const id = button.dataset.submitAppraisal || button.dataset.draftAppraisal;
     const appraisal = state.data.appraisals.find(a => a.id === id) || managerAssignedAppraisals().find(a => a.id === id);
     await api(`/api/appraisals/${id}`, { method: "POST", body: { scores: collectManagerScores(appraisal), submit: Boolean(button.dataset.submitAppraisal) } });
     state.data = await api("/api/bootstrap");
+    button.closest(".modal-backdrop")?.remove();
     toast(button.dataset.submitAppraisal ? "Appraisal submitted" : "Draft saved");
     renderShell();
   }));
@@ -2279,12 +2282,14 @@ function openModal(html) {
 }
 
 function bindAppraisalButtons(root = document) {
-  root?.querySelectorAll("[data-submit-appraisal],[data-draft-appraisal]").forEach(button => button.addEventListener("click", async () => {
+  root?.querySelectorAll("[data-submit-appraisal],[data-draft-appraisal]").forEach(button => button.addEventListener("click", async event => {
+    event.preventDefault();
+    event.stopPropagation();
     const id = button.dataset.submitAppraisal || button.dataset.draftAppraisal;
     const appraisal = state.data.appraisals.find(a => a.id === id) || managerAssignedAppraisals().find(a => a.id === id);
     await api(`/api/appraisals/${id}`, { method: "POST", body: { scores: collectManagerScores(appraisal), submit: Boolean(button.dataset.submitAppraisal) } });
     state.data = await api("/api/bootstrap");
-    document.querySelector(".modal-backdrop")?.remove();
+    button.closest(".modal-backdrop")?.remove();
     toast(button.dataset.submitAppraisal ? "Appraisal submitted" : "Draft saved");
     renderShell();
   }));
