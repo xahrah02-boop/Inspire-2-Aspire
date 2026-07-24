@@ -1,7 +1,23 @@
+// Idempotent seed for the SQLite store. Runs on boot; only populates when the
+// users collection is empty, so real data entered later is never overwritten.
+
+import { collection } from "./index.js";
 import { hashPassword } from "../core/auth.js";
 
-export function createSeedData() {
+export function seedDatabase() {
+  const users = collection("users");
+  if (users.count() > 0) return { seeded: false };
+
   const now = new Date().toISOString();
+  const data = buildSeedData(now);
+  for (const [name, rows] of Object.entries(data)) {
+    const store = collection(name);
+    for (const row of rows) store.save(row);
+  }
+  return { seeded: true };
+}
+
+function buildSeedData(now) {
   const departments = [
     "Production", "Quality Control / Quality Assurance", "Maintenance / Engineering",
     "Warehouse / Stores", "Procurement", "Sales", "Logistics / Dispatch",
@@ -62,7 +78,7 @@ export function createSeedData() {
   ].map(([code, title, department, jobRole, category, weight], i) => ({
     id: `kpi-${i + 1}`, code, title, description: `${title} measured against approved departmental expectations.`,
     category, department, jobRole, formula: "Actual performance / target performance", target: "Meet or exceed target",
-    weight, scoringGuide: "Use 1 to 5 scale based on documented evidence.", dataSource: "Supervisor records",
+    weight, scoringGuide: "Score 1 to 5 based on documented evidence.", dataSource: "Supervisor records",
     frequency: "quarterly", status: "active", createdBy: "u-hr", createdAt: now, modifiedBy: "u-hr"
   }));
 
@@ -132,14 +148,16 @@ export function createSeedData() {
     { id: "period-3", name: "April 2026 Monthly Check-in", startDate: "2026-04-01", endDate: "2026-04-30", type: "monthly", status: "locked", departments: departments.map(d => d.name) }
   ];
 
+  const templateById = Object.fromEntries(templates.map(t => [t.id, t]));
+  // Scores are now on the 1-5 scale.
   const appraisals = [
-    makeAppraisal("app-1", "emp-1", "period-1", "u-mgr-1", "Draft", templates[0], [24, 24, 18, 30, 24, 18, 24]),
-    makeAppraisal("app-2", "emp-2", "period-1", "u-mgr-2", "Submitted", templates[1], [24, 18, 24, 24, 18, 24, 30, 24]),
-    makeAppraisal("app-3", "emp-3", "period-1", "u-mgr-3", "Approved", templates[2], [30, 24, 24, 24, 24, 30, 24]),
-    makeAppraisal("app-4", "emp-1", "period-2", "u-mgr-1", "Published", templates[0], [24, 18, 24, 24, 30, 24, 24]),
-    makeAppraisal("app-5", "emp-1", "period-3", "u-mgr-1", "Acknowledged", templates[0], [18, 24, 18, 24, 24, 18, 24]),
-    makeAppraisal("app-6", "emp-4", "period-2", "u-mgr-1", "Published", templates[3], [24, 24, 18, 24, 30, 24, 24]),
-    makeAppraisal("app-7", "emp-2", "period-2", "u-mgr-2", "Published", templates[1], [18, 24, 24, 18, 24, 24, 24, 30])
+    makeAppraisal("app-1", "emp-1", "period-1", "u-mgr-1", "Draft", templateById["tpl-prod"], [4, 4, 3, 5, 4, 3, 4]),
+    makeAppraisal("app-2", "emp-2", "period-1", "u-mgr-2", "Submitted", templateById["tpl-sales"], [4, 3, 4, 4, 3, 4, 5, 4]),
+    makeAppraisal("app-3", "emp-3", "period-1", "u-mgr-3", "Approved", templateById["tpl-warehouse"], [5, 4, 4, 4, 4, 5, 4]),
+    makeAppraisal("app-4", "emp-1", "period-2", "u-mgr-1", "Published", templateById["tpl-prod"], [4, 3, 4, 4, 5, 4, 4]),
+    makeAppraisal("app-5", "emp-1", "period-3", "u-mgr-1", "Acknowledged", templateById["tpl-prod"], [3, 4, 3, 4, 4, 3, 4]),
+    makeAppraisal("app-6", "emp-4", "period-2", "u-mgr-1", "Published", templateById["tpl-maint"], [4, 4, 3, 4, 5, 4, 4]),
+    makeAppraisal("app-7", "emp-2", "period-2", "u-mgr-2", "Published", templateById["tpl-sales"], [3, 4, 4, 3, 4, 4, 4, 5])
   ];
 
   const notifications = [
@@ -149,9 +167,9 @@ export function createSeedData() {
   ].map(([id, userId, title, message]) => ({ id, userId, title, message, read: false, createdAt: now }));
 
   const guides = [
-    { id: "guide-1", audience: "All Users", title: "How appraisal works", body: "KPIs define measurable performance expectations. Managers score each KPI from 1 to 5 using evidence and comments." },
+    { id: "guide-1", audience: "All Users", title: "How appraisal works", body: "KPIs define measurable performance expectations. Managers score each KPI from 1 to 5 using evidence, and each KPI's weight determines how much it contributes to the final score." },
     { id: "guide-2", audience: "HR Admin", title: "HR workflow", body: "Create KPI masters, build templates, maintain employee records, open periods, review submissions, approve and publish results." },
-    { id: "guide-3", audience: "Line Manager", title: "Manager workflow", body: "Open My Appraisals, start or continue an appraisal, enter scores and comments, save drafts, then submit to HR." },
+    { id: "guide-3", audience: "Line Manager", title: "Manager workflow", body: "Open My Appraisals, start or continue an appraisal, enter 1-5 scores and comments, save drafts, then submit to HR." },
     { id: "guide-4", audience: "Employee", title: "Employee checklist", body: "Review your profile, read KPI guidance, view assigned KPIs, confirm expectations, read policy, and acknowledge completion." }
   ];
 
@@ -160,7 +178,10 @@ export function createSeedData() {
     { id: "audit-2", userId: "u-mgr-2", action: "Appraisal submitted", module: "Appraisals", record: "app-2", createdAt: now, oldValue: "Draft", newValue: "Submitted" }
   ];
 
-  return { users, departments, jobRoles, categories, kpiMaster, templates, employees, appraisalPeriods, appraisals, notifications, guides, auditLogs };
+  return {
+    users, departments, jobRoles, categories, kpiMaster, templates, employees,
+    appraisalPeriods, appraisals, notifications, guides, auditLogs
+  };
 }
 
 function makeAppraisal(id, employeeId, periodId, managerUserId, status, template, scores) {
@@ -180,10 +201,11 @@ function makeAppraisal(id, employeeId, periodId, managerUserId, status, template
       title: item.title,
       weight: item.weight,
       target: "Meet or exceed approved target",
-      score: scores[index] || 18,
+      score: scores[index] ?? 3,
       actualResult: "Documented result available",
       managerComment: "Assessment supported by operational evidence.",
       evidenceNote: "Supervisor log / ERP report",
+      evidenceFileId: "",
       employeeComment: "",
       managerConfirmedEmployeeComment: false
     }))

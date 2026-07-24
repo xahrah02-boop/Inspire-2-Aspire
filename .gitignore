@@ -1,0 +1,3 @@
+# Runtime SQLite database, WAL files, and uploaded evidence
+/data/
+node_modules/
