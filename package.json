@@ -7,12 +7,14 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test"
   },
-  "recommendedStack": {
-    "frontend": "Next.js + React + TypeScript",
-    "backend": "Next.js API routes or Node.js API",
-    "database": "PostgreSQL",
-    "orm": "Prisma"
+  "engines": {
+    "node": ">=22.5"
+  },
+  "stack": {
+    "frontend": "Vanilla JS + native ES modules (per-page, lazy-loaded)",
+    "backend": "Node.js http server (single, modular)",
+    "database": "SQLite via built-in node:sqlite"
   }
 }
